@@ -288,6 +288,18 @@ class SceneFactory:
         try:
             print("Applying candy transformations...")
             
+            # Check if Isaac Sim is ready for material operations
+            try:
+                import omni.usd
+                stage = omni.usd.get_context().get_stage()
+                stage_ready = stage is not None
+                print(f"   🔧 Isaac Sim stage ready: {stage_ready}")
+                if not stage_ready:
+                    print("   ⚠️  USD stage not available - materials may not be applied")
+            except ImportError:
+                print("   ⚠️  USD libraries not loaded - this is expected during early initialization")
+                print("   ℹ️  Materials will be applied when Isaac Sim is fully loaded")
+            
             # Get candy type configurations
             oranges_config = scene_config.get('scene', {}).get('oranges', {})
             candy_types = oranges_config.get('candy_types', {})
@@ -298,7 +310,8 @@ class SceneFactory:
             plate_config = scene_config.get('scene', {}).get('plate', {})
             bowl_styling = plate_config.get('bowl_styling', {})
             
-            env_config = scene_config.get('scene', {}).get('environment', {})
+            # Look for environment config in placement section (where it actually is)
+            env_config = scene_config.get('placement', {}).get('environment', {})
             table_styling = env_config.get('table_styling', {})
             
             print(f"   Debug: Bowl styling: {bowl_styling}")
@@ -309,11 +322,13 @@ class SceneFactory:
             print(f"   Debug: Orange models: {orange_models}")
             
             materials_applied = 0
+            materials_attempted = 0
             
             for object_name, obj in scene_objects.items():
                 print(f"   Debug: Processing object {object_name}, has prim_path: {hasattr(obj, 'prim_path')}")
                 
                 if "orange" in object_name.lower() and hasattr(obj, 'prim_path'):
+                    materials_attempted += 1
                     # Determine candy type based on object index
                     object_index = int(object_name.replace('orange', '').replace('_object', '')) - 1
                     if object_index < len(orange_models):
@@ -321,52 +336,75 @@ class SceneFactory:
                         candy_info = candy_types.get(model_name, {})
                         candy_name = candy_info.get('name', f'Candy {object_index+1}')
                         
-                        print(f"   Transforming {object_name} � {candy_name}")
+                        print(f"   🍬 Transforming {object_name} → {candy_name}")
                         print(f"       Prim path: {obj.prim_path}")
                         print(f"       Candy info: {candy_info}")
                         
                         if candy_info:  # Only apply if we have candy info
-                            self._apply_material_to_object(obj.prim_path, candy_info, candy_name)
-                            materials_applied += 1
+                            success = self._apply_material_to_object(obj.prim_path, candy_info, candy_name)
+                            if success:
+                                materials_applied += 1
                         else:
-                            print(f"       No candy info found for {model_name}")
+                            print(f"       ❌ No candy info found for {model_name}")
                 
                 elif "plate" in object_name.lower():
                     if hasattr(obj, 'prim_path') and bowl_styling:
+                        materials_attempted += 1
                         bowl_info = {
                             'name': 'Yellow Bowl',
                             'color': bowl_styling.get('color', [1.0, 1.0, 0.0]),
                             'roughness': bowl_styling.get('roughness', 0.2),
                             'metallic': bowl_styling.get('metallic', 0.0)
                         }
-                        print(f"   Transforming plate � Yellow Bowl")
+                        print(f"   🥣 Transforming plate → Yellow Bowl")
                         print(f"       Prim path: {obj.prim_path}")
-                        self._apply_material_to_object(obj.prim_path, bowl_info, "Yellow Bowl")
-                        materials_applied += 1
+                        success = self._apply_material_to_object(obj.prim_path, bowl_info, "Yellow_Bowl")
+                        if success:
+                            materials_applied += 1
                     else:
-                        print(f"   Plate object {object_name} - prim_path: {hasattr(obj, 'prim_path')}, bowl_styling: {bool(bowl_styling)}")
+                        print(f"   ℹ️  Plate object {object_name} - prim_path: {hasattr(obj, 'prim_path')}, bowl_styling: {bool(bowl_styling)}")
             
             # Apply table styling to ground
             if table_styling:
+                materials_attempted += 1
                 table_info = {
                     'name': 'White Table',
                     'color': table_styling.get('color', [1.0, 1.0, 1.0]),
                     'roughness': table_styling.get('roughness', 0.3),
                     'metallic': table_styling.get('metallic', 0.0)
                 }
-                print(f"   Transforming ground � White Table")
-                self._apply_material_to_ground(table_info)
-                materials_applied += 1
+                print(f"   🪑 Transforming ground → White Table")
+                success = self._apply_material_to_ground(table_info)
+                if success:
+                    materials_applied += 1
             
-            print(f"Candy transformations completed! Applied {materials_applied} materials.")
+            print(f"🎨 Candy transformations completed!")
+            print(f"   📊 Materials attempted: {materials_attempted}")
+            print(f"   ✅ Materials successfully applied: {materials_applied}")
+            print(f"   ❌ Materials failed: {materials_attempted - materials_applied}")
             
             if materials_applied == 0:
-                print("No materials were applied - check your configuration!")
-                print(f"   Candy types found: {len(candy_types)}")
-                print(f"   Objects processed: {list(scene_objects.keys())}")
+                print("🚨 WARNING: No materials were successfully applied!")
+                print("   This could be because:")
+                print("   - Isaac Sim is not fully loaded yet")
+                print("   - USD stage is not ready")
+                print("   - Object prim paths are incorrect")
+                print("   - Material binding failed")
+                print("   🔄 Try waiting a few seconds and running the script again")
+            elif materials_applied < materials_attempted:
+                print("⚠️  Some materials failed to apply - check the detailed error messages above")
+            else:
+                print("🎉 All materials applied successfully!")
+                print("   If you don't see visual changes, try:")
+                print("   - Pressing 'G' to cycle lighting modes in Isaac Sim")
+                print("   - Rotating the viewport to refresh rendering")
+                print("   - Checking that Lit mode is enabled (not Unlit)")
+                print("   - For WHITE TABLE: Try orbiting camera to look down at ground plane")
+                print("   - For WHITE TABLE: Check viewport lighting settings (may appear gray in some lighting)")
+                print("   - Press the '4' key to switch to perspective view if in orthographic mode")
             
         except Exception as e:
-            print(f"Failed to apply some candy materials: {e}")
+            print(f"❌ Failed to apply some candy materials: {e}")
             print("   Objects will appear with default materials")
             import traceback
             print(f"   Error details: {traceback.format_exc()}")
@@ -381,33 +419,52 @@ class SceneFactory:
             material_name (str): Name for the material
         """
         try:
+            # Try to import USD modules - these are only available when Isaac Sim is running
             import omni.usd
             from pxr import Sdf, Gf, UsdShade
             
             stage = omni.usd.get_context().get_stage()
+            if stage is None:
+                print(f"     ❌ No USD stage available - Isaac Sim may not be fully initialized")
+                return
+                
             prim = stage.GetPrimAtPath(prim_path)
             
             if not prim.IsValid():
-                print(f"     Prim not found: {prim_path}")
+                print(f"     ❌ Prim not found: {prim_path}")
                 return
                 
             color = material_info.get('color', [1.0, 0.5, 0.0])
             roughness = material_info.get('roughness', 0.1)
             metallic = material_info.get('metallic', 0.2)
             
-            # Create material path
-            safe_name = material_name.replace(' ', '_')
-            material_prim_path = f"/World/Looks/{safe_name}_Material"
+            print(f"     🎨 Creating material for {material_name} with color {color}")
             
-            # Create or get material
-            looks_prim = stage.GetPrimAtPath("/World/Looks")
+            # Create material path INSIDE the object (correct hierarchy)
+            safe_name = material_name.replace(' ', '_').replace('-', '_')
+            object_looks_path = f"{prim_path}/Looks"
+            material_prim_path = f"{object_looks_path}/{safe_name}_Material"
+            
+            print(f"     📁 Material path: {material_prim_path}")
+            
+            # Create or get object's Looks scope
+            looks_prim = stage.GetPrimAtPath(object_looks_path)
             if not looks_prim.IsValid():
-                looks_prim = stage.DefinePrim("/World/Looks", "Scope")
+                looks_prim = stage.DefinePrim(object_looks_path, "Scope")
+                print(f"     ✅ Created Looks scope: {object_looks_path}")
+            else:
+                print(f"     ♻️  Using existing Looks scope: {object_looks_path}")
+                
+            # Remove existing material if it exists
+            existing_material = stage.GetPrimAtPath(material_prim_path)
+            if existing_material.IsValid():
+                stage.RemovePrim(material_prim_path)
+                print(f"     🗑️  Removed existing material: {material_prim_path}")
                 
             material_prim = stage.DefinePrim(material_prim_path, "Material")
             material = UsdShade.Material(material_prim)
             
-            # Create shader
+            # Create shader inside the object's material
             shader_path = material_prim_path + "/Shader"
             shader_prim = stage.DefinePrim(shader_path, "Shader")
             shader = UsdShade.Shader(shader_prim)
@@ -427,15 +484,104 @@ class SceneFactory:
             material_surface = material.CreateSurfaceOutput()
             material_surface.ConnectToSource(shader.ConnectableAPI(), "surface")
             
-            # Bind material to object
-            UsdShade.MaterialBindingAPI(prim).Bind(material)
+            # Bind material to object (and its children)
+            binding_api = UsdShade.MaterialBindingAPI.Apply(prim)
+            binding_api.Bind(material)
             
-            print(f"     Applied {material_name} material (RGB: {color})")
+            # Also try to bind to visual/mesh children if they exist
+            materials_bound = self._bind_material_to_children(stage, prim_path, material)
             
-        except ImportError:
-            print(f"     USD libraries not available for {material_name}")
+            print(f"     ✅ Applied {material_name} material (RGB: {color}) to {prim_path}")
+            print(f"     🔗 Material bindings: {materials_bound + 1} objects")
+            
+            return True
+            
+        except ImportError as e:
+            print(f"     ❌ USD libraries not available for {material_name}: {e}")
+            print(f"     ℹ️  This is expected if Isaac Sim is not fully loaded yet")
+            return False
         except Exception as e:
-            print(f"     Failed to apply {material_name} material: {e}")
+            print(f"     ❌ Failed to apply {material_name} material: {e}")
+            import traceback
+            print(f"     📋 Error details: {traceback.format_exc()}")
+            return False
+    
+    def _bind_material_to_children(self, stage, object_path, material):
+        """
+        Bind material to visual/mesh children of an object.
+        
+        Args:
+            stage: USD stage
+            object_path (str): Path to the parent object
+            material: UsdShade.Material to bind
+            
+        Returns:
+            int: Number of children the material was bound to
+        """
+        bound_count = 0
+        try:
+            from pxr import UsdShade
+            
+            # First try to find the actual model path within the object
+            object_prim = stage.GetPrimAtPath(object_path)
+            if not object_prim.IsValid():
+                return bound_count
+                
+            # Look for the actual model (e.g., Orange001 inside orange1)
+            model_paths = []
+            for child in object_prim.GetChildren():
+                child_path = str(child.GetPath())
+                if any(name in child_path for name in ['Orange', 'Plate', 'Model', 'Mesh']):
+                    model_paths.append(child_path)
+                    print(f"       🔍 Found model path: {child_path}")
+            
+            # Common child paths where visuals might be
+            visual_paths = []
+            for model_path in model_paths:
+                visual_paths.extend([
+                    f"{model_path}/Visuals",
+                    f"{model_path}/visuals", 
+                    f"{model_path}/mesh",
+                    f"{model_path}/Mesh",
+                    f"{model_path}/Looks",
+                    model_path  # The model itself
+                ])
+            
+            # Also try direct paths from the object
+            visual_paths.extend([
+                f"{object_path}/Visuals",
+                f"{object_path}/visuals", 
+                f"{object_path}/mesh",
+                f"{object_path}/Mesh"
+            ])
+            
+            for visual_path in visual_paths:
+                visual_prim = stage.GetPrimAtPath(visual_path)
+                if visual_prim.IsValid():
+                    try:
+                        binding_api = UsdShade.MaterialBindingAPI.Apply(visual_prim)
+                        binding_api.Bind(material)
+                        bound_count += 1
+                        print(f"       ✅ Material bound to: {visual_path}")
+                    except Exception as e:
+                        print(f"       ⚠️  Failed to bind to {visual_path}: {e}")
+                        
+                    # Also bind to any mesh children
+                    for child_prim in visual_prim.GetChildren():
+                        if child_prim.IsValid():
+                            try:
+                                binding_api = UsdShade.MaterialBindingAPI.Apply(child_prim)
+                                binding_api.Bind(material)
+                                bound_count += 1
+                                print(f"       ✅ Material bound to child: {child_prim.GetPath()}")
+                            except Exception as e:
+                                print(f"       ⚠️  Failed to bind to child {child_prim.GetPath()}: {e}")
+            
+            return bound_count
+            
+        except Exception as e:
+            print(f"       ❌ Error binding to children: {e}")
+            return bound_count
     
     def _apply_material_to_ground(self, material_info):
         """
@@ -443,19 +589,29 @@ class SceneFactory:
         
         Args:
             material_info (dict): Material configuration for the ground
+            
+        Returns:
+            bool: True if successful, False otherwise
         """
         try:
             import omni.usd
             stage = omni.usd.get_context().get_stage()
             ground_prim_path = "/World/defaultGroundPlane"
             
-            if stage.GetPrimAtPath(ground_prim_path).IsValid():
-                self._apply_material_to_object(ground_prim_path, material_info, "White Table")
+            ground_prim = stage.GetPrimAtPath(ground_prim_path)
+            if ground_prim.IsValid():
+                print(f"     🪑 Applying table material to: {ground_prim_path}")
+                return self._apply_material_to_object(ground_prim_path, material_info, "White_Table")
             else:
-                print("     Ground plane not found")
+                print(f"     ❌ Ground plane not found at: {ground_prim_path}")
+                return False
                 
+        except ImportError as e:
+            print(f"     ❌ USD libraries not available for table material: {e}")
+            return False
         except Exception as e:
-            print(f"     Failed to apply table material: {e}")
+            print(f"     ❌ Failed to apply table material: {e}")
+            return False
 
 
 # Compatibility function to maintain the same interface as the main script.
