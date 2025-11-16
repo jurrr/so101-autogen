@@ -34,3 +34,16 @@ build/
 
 # other 
 *.webm
+
+outputs/*
+
+
+# Model outputs and training artifacts
+outputs/
+*.pth
+*.safetensors
+*.ckpt
+
+# Large data files
+*.hdf5
+*.h5

@@ -32,7 +32,7 @@ class SceneFactory:
         Returns:
             dict: A dictionary of scene objects.
         """
-        print("\n🍊 Creating the orange and plate scene...")
+        print("\n Creating the orange and plate scene...")
         scene_objects = {}
         
         # Get configuration parameters
@@ -53,7 +53,7 @@ class SceneFactory:
         min_distance = orange_config["min_distance"]
         max_attempts = orange_config["max_attempts"]
         
-        print(f"✅ Configuration parameters loaded:")
+        print(f"Configuration parameters loaded:")
         print(f"   Plate Position: {plate_position}")
         print(f"   Plate Radius: {plate_radius}m, Height: {plate_height}m")
         print(f"   Number of Oranges: {orange_count}, Mass: {orange_mass}kg")
@@ -69,12 +69,12 @@ class SceneFactory:
         )
         
         # Set plate position
-        print("🍽️ Setting plate position...")
+        print("Setting plate position...")
         plate_center = plate_position.copy()
-        print(f"✅ Using plate position from configuration file: {plate_center}")
+        print(f"Using plate position from configuration file: {plate_center}")
         
         # Generate orange positions (avoiding the plate)
-        print("🍊 Generating orange positions (avoiding the plate)...")
+        print("Generating orange positions (avoiding the plate)...")
         smart_placement.clear_placement_history()
         plate_object_info = {
             "position": np.array(plate_center),
@@ -82,7 +82,7 @@ class SceneFactory:
             "name": "plate_object"
         }
         smart_placement.placed_objects.append(plate_object_info)
-        print(f"📍 Plate avoidance zone: Position {plate_center}, Radius {smart_placement.object_sizes['plate']['radius']}m")
+        print(f"Plate avoidance zone: Position {plate_center}, Radius {smart_placement.object_sizes['plate']['radius']}m")
         
         # Generate orange positions
         orange_types = ["orange"] * orange_count
@@ -91,11 +91,11 @@ class SceneFactory:
         
         # Combine all positions
         safe_positions = orange_positions + [np.array(plate_center)]
-        print(f"✅ Generated {len(orange_positions)} orange positions + 1 plate position.")
+        print(f"Generated {len(orange_positions)} orange positions + 1 plate position.")
         
         # Load orange objects
         orange_objects_loaded = self._load_orange_objects(
-            orange_count, orange_usd_paths, safe_positions, orange_mass
+            orange_count, orange_usd_paths, safe_positions, orange_mass, scene_config
         )
         
         # Add oranges to the scene objects dictionary
@@ -107,25 +107,35 @@ class SceneFactory:
         if plate_obj:
             scene_objects["plate_object"] = plate_obj
         
-        print(f"✅ Orange and plate scene created: {len(scene_objects)} objects.")
+        # Apply candy materials and styling
+        print("\nApplying candy materials and styling...")
+        self._apply_candy_materials(scene_objects, scene_config)
+        
+        print(f"Orange and plate scene created: {len(scene_objects)} objects.")
         for name in scene_objects.keys():
             print(f"    - {name}")
         
         return scene_objects, orange_positions, plate_center
     
-    def _load_orange_objects(self, orange_count, orange_usd_paths, safe_positions, orange_mass):
-        """Loads the orange objects.
+    def _load_orange_objects(self, orange_count, orange_usd_paths, safe_positions, orange_mass, scene_config):
+        """Loads the orange objects with candy-specific masses.
         
         Args:
             orange_count (int): The number of oranges.
             orange_usd_paths (list): A list of paths to the orange USD files.
             safe_positions (list): A list of safe positions.
-            orange_mass (float): The mass of the oranges.
+            orange_mass (float): The default mass of the oranges.
+            scene_config (dict): Scene configuration containing candy types.
             
         Returns:
             dict: A dictionary of orange objects.
         """
         orange_objects_loaded = {}
+        
+        # Get candy type configurations
+        oranges_config = scene_config.get('scene', {}).get('oranges', {})
+        candy_types = oranges_config.get('candy_types', {})
+        orange_models = oranges_config.get('models', ["Orange001", "Orange002", "Orange003"])
         
         for i in range(orange_count):
             if i < len(safe_positions) - 1:  # Subtract 1 because the last position is the plate
@@ -133,10 +143,16 @@ class SceneFactory:
                 prim_path = f"/World/orange{i+1}"
                 scene_name = f"orange{i+1}_object"
                 
-                orange_obj = self._load_single_orange(usd_path, prim_path, safe_positions[i].tolist(), scene_name, orange_mass)
+                # Get candy-specific mass
+                model_name = orange_models[i] if i < len(orange_models) else f"Orange00{i+1}"
+                candy_info = candy_types.get(model_name, {})
+                candy_mass = candy_info.get('mass', orange_mass)
+                candy_name = candy_info.get('name', f'Candy {i+1}')
+                
+                orange_obj = self._load_single_orange(usd_path, prim_path, safe_positions[i].tolist(), scene_name, candy_mass)
                 if orange_obj:
                     orange_objects_loaded[scene_name] = orange_obj
-                    print(f"✅ {scene_name} loaded successfully: Position {safe_positions[i].tolist()}, Mass {orange_mass}kg")
+                    print(f"{candy_name} loaded successfully: Position {safe_positions[i].tolist()}, Mass {candy_mass}kg")
         
         return orange_objects_loaded
     
@@ -154,16 +170,16 @@ class SceneFactory:
             The orange object or None.
         """
         if not os.path.exists(usd_path):
-            print(f"⚠️ Orange USD file not found: {usd_path}")
+            print(f"Orange USD file not found: {usd_path}")
             return None
             
         try:
-            print(f"🔧 Loading orange USD: {os.path.basename(usd_path)}")
+            print(f"Loading orange USD: {os.path.basename(usd_path)}")
             
             # Step 1: Load the USD to the stage
             from isaacsim.core.utils.stage import add_reference_to_stage
             add_reference_to_stage(usd_path=usd_path, prim_path=prim_path)
-            print(f"✅ Orange USD loaded to stage: {prim_path}")
+            print(f"Orange USD loaded to stage: {prim_path}")
             
             # Step 2: Create a physics object using SingleRigidPrim
             from isaacsim.core.prims import SingleRigidPrim
@@ -177,11 +193,11 @@ class SceneFactory:
                 )
             )
             
-            print(f"✅ Orange loaded: {name} at position {position} with mass {mass}kg")
+            print(f"Orange loaded: {name} at position {position} with mass {mass}kg")
             return orange
             
         except Exception as e:
-            print(f"❌ Failed to load orange {name}: {e}")
+            print(f"Failed to load orange {name}: {e}")
             return None
     
     def _load_plate_object(self, plate_center, plate_radius, plate_height):
@@ -195,36 +211,40 @@ class SceneFactory:
         Returns:
             The plate object or a virtual plate object.
         """
-        print("🍽️ Loading plate USD model...")
-        print(f"📍 Using plate position: {plate_center}")
+        print("Loading plate USD model...")
+        print(f"Using plate position: {plate_center}")
         
         plate_usd_path = f"{self.project_root}/assets/objects/Plate/Plate.usd"
         
-        try:
-            print(f"🔧 Loading plate USD: {os.path.basename(plate_usd_path)}")
-            from isaacsim.core.utils.stage import add_reference_to_stage
-            add_reference_to_stage(usd_path=plate_usd_path, prim_path="/World/plate_object")
-            print("✅ Plate USD loaded to stage: /World/plate_object")
-            
-            # Create a physics object for the plate using SingleRigidPrim
-            from isaacsim.core.prims import SingleRigidPrim
-            plate = self.world.scene.add(
-                SingleRigidPrim(
-                    prim_path="/World/plate_object",
-                    name="plate_object",
-                    position=plate_center,
-                    mass=0.2  # 200g mass for the plate
+        if os.path.exists(plate_usd_path):
+            try:
+                print(f"Loading plate USD: {os.path.basename(plate_usd_path)}")
+                from isaacsim.core.utils.stage import add_reference_to_stage
+                add_reference_to_stage(usd_path=plate_usd_path, prim_path="/World/plate")
+                print("Plate USD loaded to stage: /World/plate")
+                
+                # Create a physics object for the plate using SingleRigidPrim
+                from isaacsim.core.prims import SingleRigidPrim
+                plate = self.world.scene.add(
+                    SingleRigidPrim(
+                        prim_path="/World/plate",
+                        name="plate_object",
+                        position=plate_center,
+                        mass=0.2  # 200g mass for the plate
+                    )
                 )
-            )
-            print(f"✅ Plate loaded: plate_object at position {plate_center} with mass 0.2kg")
-            return plate
+                print(f"Plate loaded: plate_object at position {plate_center} with mass 0.2kg")
+                return plate
+                
+            except Exception as e:
+                print(f"Failed to load plate: {e}")
+                print("Using a virtual plate object as a fallback...")
+        else:
+            print(f"Plate USD file not found: {plate_usd_path}")
+            print("Using a virtual plate object as a fallback...")
             
-        except Exception as e:
-            print(f"❌ Failed to load plate: {e}")
-            print("🔄 Using a virtual plate object as a fallback...")
-            
-            # Create a virtual plate object
-            return self._create_virtual_plate(plate_center, plate_radius, plate_height)
+        # Create a virtual plate object
+        return self._create_virtual_plate(plate_center, plate_radius, plate_height)
     
     def _create_virtual_plate(self, position, radius=0.1, height=0.02):
         """Creates a virtual plate object.
@@ -248,14 +268,194 @@ class SceneFactory:
             
             def set_world_pose(self, position, orientation=None):
                 self.position = np.array(position)
-                print(f"🍽️ Virtual plate position updated: [{self.position[0]:.4f}, {self.position[1]:.4f}, {self.position[2]:.4f}]")
+                print(f"Virtual plate position updated: [{self.position[0]:.4f}, {self.position[1]:.4f}, {self.position[2]:.4f}]")
             
             def get_linear_velocity(self):
                 return np.array([0, 0, 0])  # Stationary state
         
         virtual_plate = VirtualPlateObject(position, radius=radius, height=height)
-        print(f"✅ Virtual plate object created at position: {position}")
+        print(f"Virtual plate object created at position: {position}")
         return virtual_plate
+    
+    def _apply_candy_materials(self, scene_objects, scene_config):
+        """
+        Applies candy materials and styling to the loaded objects.
+        
+        Args:
+            scene_objects (dict): Dictionary of loaded scene objects
+            scene_config (dict): Scene configuration containing candy types and styling
+        """
+        try:
+            print("Applying candy transformations...")
+            
+            # Get candy type configurations
+            oranges_config = scene_config.get('scene', {}).get('oranges', {})
+            candy_types = oranges_config.get('candy_types', {})
+            
+            print(f"   Debug: Found candy types: {list(candy_types.keys())}")
+            
+            # Get styling configurations
+            plate_config = scene_config.get('scene', {}).get('plate', {})
+            bowl_styling = plate_config.get('bowl_styling', {})
+            
+            env_config = scene_config.get('scene', {}).get('environment', {})
+            table_styling = env_config.get('table_styling', {})
+            
+            print(f"   Debug: Bowl styling: {bowl_styling}")
+            print(f"   Debug: Table styling: {table_styling}")
+            
+            # Apply candy materials to orange objects
+            orange_models = oranges_config.get('models', ["Orange001", "Orange002", "Orange003"])
+            print(f"   Debug: Orange models: {orange_models}")
+            
+            materials_applied = 0
+            
+            for object_name, obj in scene_objects.items():
+                print(f"   Debug: Processing object {object_name}, has prim_path: {hasattr(obj, 'prim_path')}")
+                
+                if "orange" in object_name.lower() and hasattr(obj, 'prim_path'):
+                    # Determine candy type based on object index
+                    object_index = int(object_name.replace('orange', '').replace('_object', '')) - 1
+                    if object_index < len(orange_models):
+                        model_name = orange_models[object_index]
+                        candy_info = candy_types.get(model_name, {})
+                        candy_name = candy_info.get('name', f'Candy {object_index+1}')
+                        
+                        print(f"   Transforming {object_name} � {candy_name}")
+                        print(f"       Prim path: {obj.prim_path}")
+                        print(f"       Candy info: {candy_info}")
+                        
+                        if candy_info:  # Only apply if we have candy info
+                            self._apply_material_to_object(obj.prim_path, candy_info, candy_name)
+                            materials_applied += 1
+                        else:
+                            print(f"       No candy info found for {model_name}")
+                
+                elif "plate" in object_name.lower():
+                    if hasattr(obj, 'prim_path') and bowl_styling:
+                        bowl_info = {
+                            'name': 'Yellow Bowl',
+                            'color': bowl_styling.get('color', [1.0, 1.0, 0.0]),
+                            'roughness': bowl_styling.get('roughness', 0.2),
+                            'metallic': bowl_styling.get('metallic', 0.0)
+                        }
+                        print(f"   Transforming plate � Yellow Bowl")
+                        print(f"       Prim path: {obj.prim_path}")
+                        self._apply_material_to_object(obj.prim_path, bowl_info, "Yellow Bowl")
+                        materials_applied += 1
+                    else:
+                        print(f"   Plate object {object_name} - prim_path: {hasattr(obj, 'prim_path')}, bowl_styling: {bool(bowl_styling)}")
+            
+            # Apply table styling to ground
+            if table_styling:
+                table_info = {
+                    'name': 'White Table',
+                    'color': table_styling.get('color', [1.0, 1.0, 1.0]),
+                    'roughness': table_styling.get('roughness', 0.3),
+                    'metallic': table_styling.get('metallic', 0.0)
+                }
+                print(f"   Transforming ground � White Table")
+                self._apply_material_to_ground(table_info)
+                materials_applied += 1
+            
+            print(f"Candy transformations completed! Applied {materials_applied} materials.")
+            
+            if materials_applied == 0:
+                print("No materials were applied - check your configuration!")
+                print(f"   Candy types found: {len(candy_types)}")
+                print(f"   Objects processed: {list(scene_objects.keys())}")
+            
+        except Exception as e:
+            print(f"Failed to apply some candy materials: {e}")
+            print("   Objects will appear with default materials")
+            import traceback
+            print(f"   Error details: {traceback.format_exc()}")
+    
+    def _apply_material_to_object(self, prim_path, material_info, material_name):
+        """
+        Applies material to a specific object.
+        
+        Args:
+            prim_path (str): Path to the object prim
+            material_info (dict): Material configuration
+            material_name (str): Name for the material
+        """
+        try:
+            import omni.usd
+            from pxr import Sdf, Gf, UsdShade
+            
+            stage = omni.usd.get_context().get_stage()
+            prim = stage.GetPrimAtPath(prim_path)
+            
+            if not prim.IsValid():
+                print(f"     Prim not found: {prim_path}")
+                return
+                
+            color = material_info.get('color', [1.0, 0.5, 0.0])
+            roughness = material_info.get('roughness', 0.1)
+            metallic = material_info.get('metallic', 0.2)
+            
+            # Create material path
+            safe_name = material_name.replace(' ', '_')
+            material_prim_path = f"/World/Looks/{safe_name}_Material"
+            
+            # Create or get material
+            looks_prim = stage.GetPrimAtPath("/World/Looks")
+            if not looks_prim.IsValid():
+                looks_prim = stage.DefinePrim("/World/Looks", "Scope")
+                
+            material_prim = stage.DefinePrim(material_prim_path, "Material")
+            material = UsdShade.Material(material_prim)
+            
+            # Create shader
+            shader_path = material_prim_path + "/Shader"
+            shader_prim = stage.DefinePrim(shader_path, "Shader")
+            shader = UsdShade.Shader(shader_prim)
+            shader.CreateIdAttr("UsdPreviewSurface")
+            
+            # Set material properties
+            diffuse_input = shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f)
+            diffuse_input.Set(Gf.Vec3f(*color))
+            
+            roughness_input = shader.CreateInput("roughness", Sdf.ValueTypeNames.Float)
+            roughness_input.Set(roughness)
+            
+            metallic_input = shader.CreateInput("metallic", Sdf.ValueTypeNames.Float)
+            metallic_input.Set(metallic)
+            
+            # Connect shader to material
+            material_surface = material.CreateSurfaceOutput()
+            material_surface.ConnectToSource(shader.ConnectableAPI(), "surface")
+            
+            # Bind material to object
+            UsdShade.MaterialBindingAPI(prim).Bind(material)
+            
+            print(f"     Applied {material_name} material (RGB: {color})")
+            
+        except ImportError:
+            print(f"     USD libraries not available for {material_name}")
+        except Exception as e:
+            print(f"     Failed to apply {material_name} material: {e}")
+    
+    def _apply_material_to_ground(self, material_info):
+        """
+        Applies material to the ground plane.
+        
+        Args:
+            material_info (dict): Material configuration for the ground
+        """
+        try:
+            import omni.usd
+            stage = omni.usd.get_context().get_stage()
+            ground_prim_path = "/World/defaultGroundPlane"
+            
+            if stage.GetPrimAtPath(ground_prim_path).IsValid():
+                self._apply_material_to_object(ground_prim_path, material_info, "White Table")
+            else:
+                print("     Ground plane not found")
+                
+        except Exception as e:
+            print(f"     Failed to apply table material: {e}")
 
 
 # Compatibility function to maintain the same interface as the main script.

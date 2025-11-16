@@ -6,25 +6,46 @@ simulation:
 
 # Scene Object Configuration
 scene:
-  # Oranges Configuration - Smart Avoidance Version
+  # Candy Configuration - Three Different Types
   oranges:
     count: 3
     models: 
-      - "Orange001"
-      - "Orange002" 
-      - "Orange003"
+      - "Orange001"  # Will represent Werther's Original (golden)
+      - "Orange002"  # Will represent Napoleon candy (dark brown/black)
+      - "Orange003"  # Will represent Haags Hopje (coffee/caramel colored)
     usd_paths:
       - "assets/objects/Orange001/Orange001.usd"
       - "assets/objects/Orange002/Orange002.usd"
       - "assets/objects/Orange003/Orange003.usd"
     
-    # Orange Generation Configuration - Dual-Zone Avoidance
+    # Candy type specifications
+    candy_types:
+      Orange001:
+        name: "Werthers Original"
+        color: [0.9, 0.7, 0.2]      # Golden yellow
+        mass: 0.006                  # 6g - hard candy
+        roughness: 0.1               # Glossy finish
+        metallic: 0.3                # Slight metallic shine
+      Orange002:
+        name: "Napoleon Candy"  
+        color: [0.2, 0.1, 0.05]      # Dark brown/black
+        mass: 0.008                  # 8g - slightly heavier
+        roughness: 0.2               # Semi-glossy
+        metallic: 0.1                # Less metallic
+      Orange003:
+        name: "Haags Hopje"
+        color: [0.6, 0.4, 0.2]       # Coffee/caramel brown
+        mass: 0.007                  # 7g - medium weight
+        roughness: 0.15              # Medium gloss
+        metallic: 0.2                # Medium metallic
+    
+    # Candy Generation Configuration - Dual-Zone Avoidance
     generation:
       # Base generation range (expanded to increase success rate)
       x_range: [0.1, 0.35]       # X: 10cm to 35cm
       y_range: [-0.25, 0.25]     # Y: -25cm to 25cm
       z_drop_height: 0.05        # Z: 5cm height
-      max_attempts: 50           # Maximum attempts per orange
+      max_attempts: 50           # Maximum attempts per candy
       
       # Exclusion Zones Configuration (Dual-Zone Avoidance)
       exclusion_zones:
@@ -43,20 +64,25 @@ scene:
           radius: 0.12           # Plate exclusion radius 12cm (plate radius 10cm + 2cm safety margin)
           z: [0.0, 0.2]          # Z-axis exclusion height
     
-    # Orange Physics Properties
+    # Default candy physics (individual overrides in candy_types above)
     physics:
-      radius: 0.025             # Orange radius 2.5cm
-      height: 0.05              # Orange height 5cm (user confirmed as approximately correct)
-      mass: 0.15                # Orange mass 150g
-      min_distance: 0.06        # Minimum distance between oranges 6cm
+      radius: 0.015             # Smaller radius 1.5cm (candy-like size)
+      height: 0.02              # Smaller height 2cm (candy-like size)
+      mass: 0.007               # Default mass 7g (overridden per candy type)
+      min_distance: 0.04        # Minimum distance between objects 4cm
 
-  # Plate Configuration
+  # Yellow Bowl Configuration (styled from existing plate)
   plate:
     model: "Plate"
     usd_path: "assets/objects/Plate/Plate.usd"
     position: [0.165, -0.15, 0.02]  # Corresponds to the default value of args_cli.plate_pos
     scale: 1.0
     use_virtual: true  # Corresponds to the virtual plate object logic in the main script
+    # Yellow bowl styling
+    bowl_styling:
+      color: [1.0, 1.0, 0.0]        # Bright yellow
+      roughness: 0.2                 # Smooth finish
+      metallic: 0.0                  # Non-metallic
     virtual_config:
       radius: 0.1               # Plate radius 10cm (user confirmed)
       height: 0.02
@@ -91,8 +117,8 @@ placement:
   # Object Size Configuration (for collision detection)
   object_sizes:
     orange:
-      radius: 0.025             # Orange radius 2.5cm (copied from physics for consistency)
-      height: 0.05              # Orange height 5cm
+      radius: 0.015             # Smaller radius for candy-like appearance
+      height: 0.02              # Smaller height for candy-like appearance
     plate:
       radius: 0.10              # Plate radius 10cm (user confirmed)
       height: 0.02              # Plate height 2cm
@@ -107,6 +133,11 @@ placement:
   environment:
     stage_units_in_meters: 1.0
     ground_plane: true
+    # White table styling (applied to ground plane)
+    table_styling:
+      color: [1.0, 1.0, 1.0]         # Pure white
+      roughness: 0.3                  # Matte finish
+      metallic: 0.0                   # Non-metallic
     lighting:
       dome_light:
         path: "/World/defaultLight"
@@ -153,26 +184,29 @@ data_collection:
   enabled: true
   output_path: "./datasets/so101_pickup_data.hdf5"
 
-# Target Configuration - Visualization Settings
+# Target Configuration - Candy-Specific Visualization
 target_configs:
   "/World/orange1":
-    name: "orange1_object"
+    name: "orange1_object"  # Werther's Original
+    candy_type: "Werthers Original"
     draw_aabb: true
-    aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
+    aabb_color: [1.0, 0.8, 0.2, 0.5]  # Golden, translucent
     draw_obb: true
-    obb_color: [0.0, 1.0, 1.0, 1.0]   # Cyan, opaque
+    obb_color: [0.9, 0.7, 0.2, 1.0]   # Golden, opaque
   "/World/orange2":
-    name: "orange2_object"
+    name: "orange2_object"  # Napoleon Candy
+    candy_type: "Napoleon Candy"
     draw_aabb: true
-    aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
+    aabb_color: [0.3, 0.2, 0.1, 0.5]  # Dark brown, translucent
     draw_obb: true
-    obb_color: [0.0, 1.0, 1.0, 1.0]   # Cyan, opaque
+    obb_color: [0.2, 0.1, 0.05, 1.0]  # Dark brown, opaque
   "/World/orange3":
-    name: "orange3_object"
+    name: "orange3_object"  # Haags Hopje
+    candy_type: "Haags Hopje"
     draw_aabb: true
-    aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
+    aabb_color: [0.7, 0.5, 0.3, 0.5]  # Coffee brown, translucent
     draw_obb: true
-    obb_color: [0.0, 1.0, 1.0, 1.0]   # Cyan, opaque
+    obb_color: [0.6, 0.4, 0.2, 1.0]   # Coffee brown, opaque
 
 # Debug Configuration
 debug:
