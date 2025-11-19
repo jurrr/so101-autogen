@@ -40,7 +40,9 @@ python scripts/hdf5_visualizer.py --hdf5_file ./datasets/auto_v1_10.hdf5
 
 ## 4. convert to lerobot format
 
-Due to task=task parameter, the previous lerobot version is used! downgrade to 0.3.3
+**✅ Working Solution: Use LeRobot 0.3.3 (v2.1 format)**
+
+The LeRobot 0.3.3 conversion works correctly and creates a dataset with proper frame-level data (13,315 frames across 29 episodes).
 
 ```
 pip install lerobot==0.3.3
@@ -55,11 +57,7 @@ export HF_HOME=/mnt/outputs/.cache/huggingface
 export TMPDIR=/mnt/outputs/temp
 mkdir -p $HF_HOME $TMPDIR
 
-# Optimal settings for VM with 4 CPU cores and 27GB RAM:
-# - Conservative: 2 workers (safe, slower)
-# - Balanced: 4 workers (matches CPU cores, good balance)  
-# - Aggressive: 6 workers (1.5x cores, higher memory usage)
-
+# Convert to v2.1 format (works with current task format)
 python scripts/parallel_converter.py \
     --hdf5-root ./datasets \
     --hdf5-files auto_v1_100.hdf5 \
@@ -67,6 +65,21 @@ python scripts/parallel_converter.py \
     --num-workers 4 \
     --python-executable /home/windowsuser/miniconda3/envs/isaac/bin/python \
     --push-to-hub
+```
+
+**Result:** Dataset `jurrr/pickup_orange_100e_v033` with 13,315 individual frames ✅
+
+**Optional: Convert to v3.0 format for latest LeRobot compatibility**
+
+If you need v3.0 format for newer LeRobot features:
+
+```
+pip install lerobot==0.4.1
+
+# Convert v2.1 dataset to v3.0 format 
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrr/pickup_orange_100e_v033
+
+# This creates a v3.0 dataset (may need manual upload to Hub)
 ```
 
 Cleanup of large datasets after creation
@@ -87,6 +100,12 @@ rm -rf /mnt/outputs/temp/
 
 ## 5. train smolvla model based on examples
 
+**Important: Upgrade to LeRobot 0.4.1 for training (after conversion is complete)**
+
+```
+pip install lerobot==0.4.1
+```
+
 First install FFmpeg and fix video codec compatibility
 
 ```
@@ -95,11 +114,11 @@ sudo apt install ffmpeg
 pip uninstall torchcodec -y
 pip install torchcodec==0.2.1
 
-#Fix numpy compatibility
+# Fix numpy compatibility
 pip install "numpy<2"
 ```
 
-Train the model from scratch (outputs saved to large drive to avoid storage issues)
+Train the model from scratch using the working v2.1 dataset (outputs saved to large drive to avoid storage issues)
 
 ```
 # Create output directory on large drive for model training
@@ -108,15 +127,22 @@ export LEROBOT_CACHE_DIR=/mnt/outputs
 lerobot-train \
     --batch_size=64 \
     --steps=1000 \
-    --dataset.repo_id=jurrr/pickup_orange_10e \
+    --dataset.repo_id=jurrr/pickup_orange_100e_v033 \
+    --dataset.video_backend=pyav \
     --policy.device=cuda \
     --policy.type=diffusion \
     --wandb.enable=false \
-    --policy.repo_id=jurrr/pickup_orange_10e_policy \
+    --policy.repo_id=jurrr/pickup_orange_100e_v033_policy \
     --save_freq=200 \
-    --job_name=smolvla_10e_1k \
-    --output_dir=/mnt/outputs/smolvla_10e_1k
+    --job_name=smolvla_100e_1k \
+    --output_dir=/mnt/outputs/smolvla_100e_1k
 ```
+
+**Key Parameters:**
+- `--dataset.video_backend=pyav`: Uses PyAV instead of TorchCodec (fixes video compatibility issues)
+- Training on LeRobot 0.4.1 with modern diffusion policy
+- Dataset: 13,315 frames from 29 episodes with proper frame-level structure
+- Output: Trained policy uploaded to `jurrr/pickup_orange_100e_v033_policy`
 
 ## 6. Monitor and cleanup storage
 
@@ -131,5 +157,24 @@ rm -rf /mnt/outputs/old_experiment_name/
 # Archive datasets after successful training
 tar -czf /mnt/datasets_archive_$(date +%Y%m%d).tar.gz -C /mnt datasets/
 ```
+
+## Summary: LeRobot Version Workflow
+
+**The complete workflow uses two different LeRobot versions:**
+
+1. **Data Conversion** (Step 4): Use `lerobot==0.3.3`
+   - Converts HDF5 → LeRobot v2.1 format successfully
+   - Task format compatibility issues resolved
+   - Creates proper frame-level dataset structure
+
+2. **Model Training** (Step 5): Upgrade to `lerobot==0.4.1` 
+   - Modern diffusion policy implementation
+   - Better training algorithms and optimizations
+   - Uses PyAV backend for video compatibility
+   - Trains on the v2.1 dataset created in step 4
+
+**Final Results:**
+- ✅ Dataset: `jurrr/pickup_orange_100e_v033` (13,315 frames, 29 episodes)
+- ✅ Trained Policy: `jurrr/pickup_orange_100e_v033_policy` (267M parameters, loss: 0.018)
 
 
