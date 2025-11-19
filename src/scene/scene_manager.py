@@ -39,6 +39,19 @@ class SceneManager:
         orange_config = config.get('scene', {}).get('oranges', {}).get('generation', {})
         self.random_generator = RandomPositionGenerator(orange_config, self.plate_position)
         
+        # Get candy and styling configurations
+        self.candy_types = config.get('scene', {}).get('oranges', {}).get('candy_types', {})
+        self.bowl_styling = config.get('scene', {}).get('plate', {}).get('bowl_styling', {})
+        self.table_styling = config.get('scene', {}).get('environment', {}).get('table_styling', {})
+        
+        # Print configuration info
+        if self.candy_types:
+            logger.info(f" Candy types configured: {list(self.candy_types.keys())}")
+        if self.bowl_styling:
+            logger.info(f" Bowl styling configured")
+        if self.table_styling:
+            logger.info(f" Table styling configured")
+        
         # Records for scene objects
         self.scene_objects = {}  # Format: {"orange1": object, "plate": object, ...}
         self.object_initial_positions = {}  # Record of initial positions
@@ -47,14 +60,14 @@ class SceneManager:
         self.plate_position = None
         if config and "scene" in config and "plate" in config["scene"]:
             self.plate_position = config["scene"]["plate"]["position"].copy()
-            logger.info(f"✅ Plate position loaded from config: {self.plate_position}")
+            logger.info(f" Plate position loaded from config: {self.plate_position}")
         
-        logger.info("✅ SceneManager initialized.")
+        logger.info(" SceneManager initialized.")
     
     def set_world(self, world):
         """Sets the World object."""
         self.world = world
-        logger.info("✅ World object has been set in SceneManager.")
+        logger.info(" World object has been set in SceneManager.")
     
     def register_scene_objects(self, objects: Dict[str, Any]):
         """
@@ -71,11 +84,11 @@ class SceneManager:
                 try:
                     position, _ = obj.get_world_pose()
                     self.object_initial_positions[name] = position
-                    logger.debug(f"📍 Recorded initial position for {name}: {position}")
+                    logger.debug(f"=� Recorded initial position for {name}: {position}")
                 except Exception as e:
-                    logger.warning(f"⚠️ Could not get initial position for {name}: {e}")
+                    logger.warning(f"� Could not get initial position for {name}: {e}")
         
-        logger.info(f"✅ Registered {len(objects)} scene objects.")
+        logger.info(f" Registered {len(objects)} scene objects.")
     
     def set_orange_reset_positions(self, positions: Dict[str, List[float]]):
         """
@@ -85,7 +98,7 @@ class SceneManager:
             positions: A dictionary of positions, e.g., {"orange1_object": [x, y, z], ...}.
         """
         self.object_initial_positions.update(positions)
-        logger.info(f"✅ Set reset positions for {len(positions)} oranges.")
+        logger.info(f" Set reset positions for {len(positions)} oranges.")
         for name, pos in positions.items():
             logger.info(f"    - {name}: [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]")
     
@@ -96,8 +109,8 @@ class SceneManager:
         2. Uses smart placement to avoid overlaps.
         3. Updates the positions of the objects.
         """
-        logger.info("🔄 Starting scene reset...")
-        print("🔄 Resetting scene...")
+        logger.info("= Starting scene reset...")
+        print("= Resetting scene...")
         
         try:
             # 1. Clear smart placement history
@@ -114,7 +127,7 @@ class SceneManager:
                     plate_names.append(name)
             
             if not orange_names and not plate_names:
-                logger.warning("⚠️ No objects found to reset.")
+                logger.warning("� No objects found to reset.")
                 return False
             
             reset_count = 0
@@ -125,7 +138,7 @@ class SceneManager:
                 # Prioritize using the plate position from the config file
                 if hasattr(self, 'plate_position') and self.plate_position is not None:
                     plate_center = self.plate_position.copy()
-                    logger.info(f"✅ Using plate position from config: {plate_center}")
+                    logger.info(f" Using plate position from config: {plate_center}")
                 else:
                     # Fallback to smart placement
                     plate_types = ["plate"] * len(plate_names)
@@ -133,12 +146,12 @@ class SceneManager:
                     
                     if len(plate_positions) >= 1:
                         plate_center = plate_positions[0].tolist()
-                        logger.info(f"✅ Plate smart placement successful: {plate_center}")
+                        logger.info(f" Plate smart placement successful: {plate_center}")
                     else:
                         # Fallback to default position from config
                         default_plate_pos = self.config.get('scene', {}).get('plate', {}).get('position', [0.28, 0.0, 0.1])
                         plate_center = default_plate_pos.copy()
-                        logger.warning(f"⚠️ Plate smart placement failed, using default config position: {plate_center}")
+                        logger.warning(f"� Plate smart placement failed, using default config position: {plate_center}")
                 
                 # Add the plate to the avoidance list for other objects
                 self.smart_placement.clear_placement_history()
@@ -167,20 +180,20 @@ class SceneManager:
             total_objects = len(orange_names) + len(plate_names)
             successful_placements = len(orange_positions) + (1 if plate_center else 0)
             if successful_placements != total_objects:
-                logger.warning(f"⚠️ Only {successful_placements}/{total_objects} safe positions were successfully generated.")
+                logger.warning(f"� Only {successful_placements}/{total_objects} safe positions were successfully generated.")
             
             # 5. Print detailed debug information
             all_object_names = orange_names + plate_names
             self._print_debug_info(plate_center, orange_positions, all_object_names)
             
-            logger.info(f"✅ Scene reset complete: {reset_count}/{total_objects} objects have been reset.")
-            print(f"✅ Scene reset complete: {reset_count}/{total_objects} objects have been reset.")
+            logger.info(f" Scene reset complete: {reset_count}/{total_objects} objects have been reset.")
+            print(f" Scene reset complete: {reset_count}/{total_objects} objects have been reset.")
             
             return reset_count > 0
             
         except Exception as e:
-            logger.error(f"❌ Scene reset failed: {e}")
-            print(f"❌ Scene reset failed: {e}")
+            logger.error(f"L Scene reset failed: {e}")
+            print(f"L Scene reset failed: {e}")
             return False
     
     def _update_object_position(self, object_name: str, new_position: np.ndarray) -> bool:
@@ -195,12 +208,12 @@ class SceneManager:
             True if successful, False otherwise.
         """
         if object_name not in self.scene_objects:
-            logger.warning(f"⚠️ Object {object_name} is not registered.")
+            logger.warning(f"� Object {object_name} is not registered.")
             return False
         
         obj = self.scene_objects[object_name]
         if obj is None:
-            logger.warning(f"⚠️ Object {object_name} is null.")
+            logger.warning(f"� Object {object_name} is null.")
             return False
         
         try:
@@ -216,24 +229,24 @@ class SceneManager:
             if hasattr(obj, 'set_angular_velocity'):
                 obj.set_angular_velocity(np.array([0.0, 0.0, 0.0]))
             
-            logger.debug(f"✅ Position of {object_name} updated to: [{new_position[0]:.3f}, {new_position[1]:.3f}, {new_position[2]:.3f}]")
+            logger.debug(f" Position of {object_name} updated to: [{new_position[0]:.3f}, {new_position[1]:.3f}, {new_position[2]:.3f}]")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to update position for {object_name}: {e}")
+            logger.error(f"L Failed to update position for {object_name}: {e}")
             return False
     
     def reset_to_initial_positions(self):
         """Resets all objects to their initial positions."""
-        logger.info("🔄 Resetting objects to their initial positions...")
+        logger.info("= Resetting objects to their initial positions...")
         
         reset_count = 0
         for name, initial_pos in self.object_initial_positions.items():
             if self._update_object_position(name, initial_pos):
                 reset_count += 1
         
-        logger.info(f"✅ {reset_count}/{len(self.object_initial_positions)} objects have been reset to their initial positions.")
-        print(f"✅ {reset_count}/{len(self.object_initial_positions)} objects have been reset to their initial positions.")
+        logger.info(f" {reset_count}/{len(self.object_initial_positions)} objects have been reset to their initial positions.")
+        print(f" {reset_count}/{len(self.object_initial_positions)} objects have been reset to their initial positions.")
         
         return reset_count > 0
     
@@ -253,12 +266,74 @@ class SceneManager:
             positions_list = self.random_generator.generate_random_orange_positions(num_oranges)
             # Convert to numpy array format
             positions = [np.array(pos) for pos in positions_list]
-            logger.info(f"🎲 Generated {len(positions)} random positions.")
+            logger.info(f"<� Generated {len(positions)} random positions.")
             return positions
         except Exception as e:
-            logger.error(f"❌ Failed to generate random positions: {e}")
+            logger.error(f"L Failed to generate random positions: {e}")
             return []
     
+    def apply_visual_transformations(self):
+        """
+        Applies visual transformations to make objects look like different candy types, yellow bowl, and white table.
+        """
+        try:
+            print("\n<� Applying visual transformations...")
+            print("   <l Transforming oranges into different candy types:")
+            for model, candy_info in self.candy_types.items():
+                candy_name = candy_info.get('name', 'Unknown')
+                color = candy_info.get('color', [1.0, 0.5, 0.0])
+                print(f"     - {model} � {candy_name} (RGB: {color})")
+            
+            if self.bowl_styling:
+                bowl_color = self.bowl_styling.get('color', [1.0, 1.0, 0.0])
+                print(f"   >c Transforming plate � Yellow Bowl (RGB: {bowl_color})")
+            
+            if self.table_styling:
+                table_color = self.table_styling.get('color', [1.0, 1.0, 1.0])
+                print(f"   <� Transforming ground � White Table (RGB: {table_color})")
+            
+            # Apply transformations via object loader
+            success_count = 0
+            
+            # Get orange objects to find the object loader instance
+            for obj_name, obj in self.scene_objects.items():
+                if hasattr(obj, 'apply_all_materials'):
+                    # If the object itself has material methods
+                    obj.apply_all_materials()
+                    success_count += 1
+                    break
+            
+            if success_count == 0:
+                print("� Material application requires calling from object loader")
+                print("   Please call object_loader.apply_all_materials() after scene setup")
+            
+            logger.info(" Visual transformation configuration applied")
+            return True
+            
+        except Exception as e:
+            logger.error(f"L Failed to apply visual transformations: {e}")
+            print(f"L Failed to apply visual transformations: {e}")
+            return False
+
+    def apply_candy_materials_via_loader(self, object_loader):
+        """
+        Helper method to apply materials via the object loader.
+        
+        Args:
+            object_loader: The ObjectLoader instance that loaded the objects
+        """
+        if hasattr(object_loader, 'apply_all_materials'):
+            try:
+                object_loader.apply_all_materials()
+                print(" Candy materials applied successfully!")
+                return True
+            except Exception as e:
+                print(f"L Failed to apply candy materials: {e}")
+                return False
+        else:
+            print("� Object loader does not support material application")
+            return False
+
     def get_scene_info(self) -> Dict:
         """Gets information about the scene."""
         return {
@@ -279,7 +354,7 @@ class SceneManager:
     def _print_debug_info(self, plate_center, orange_positions, object_names):
         """Prints detailed debug information."""
         print("\n" + "="*60)
-        print("🔍 Reset Debug Information")
+        print("= Reset Debug Information")
         print("="*60)
         
         # 1. Plate area information
@@ -287,14 +362,14 @@ class SceneManager:
             plate_radius = 0.10  # 10cm radius
             plate_x, plate_y = plate_center[0], plate_center[1]
             
-            print(f"🍽️ Plate Area:")
+            print(f"Plate Area:")
             print(f"   Center Position: [{plate_x:.3f}, {plate_y:.3f}, {plate_center[2]:.3f}]")
             print(f"   Radius: {plate_radius:.2f}m (10cm)")
             print(f"   X Range: [{plate_x-plate_radius:.3f}, {plate_x+plate_radius:.3f}]")
             print(f"   Y Range: [{plate_y-plate_radius:.3f}, {plate_y+plate_radius:.3f}]")
         
         # 2. Orange position information
-        print(f"\n🍊 Orange Positions:")
+        print(f"\n<J Orange Positions:")
         orange_count = 0
         for i, name in enumerate(object_names):
             if "orange" in name.lower() and orange_count < len(orange_positions):
@@ -305,7 +380,7 @@ class SceneManager:
         # 3. Overlap detection
         overlap_detected = False
         if plate_center and orange_positions:
-            print(f"\n⚠️ Overlap Detection:")
+            print(f"\n� Overlap Detection:")
             plate_radius = 0.10
             orange_count = 0
             
@@ -323,7 +398,7 @@ class SceneManager:
                     
                     print(f"   {name}:")
                     print(f"     Distance to plate center (XY): {distance_xy:.3f}m")
-                    print(f"     Within plate's XY area: {'❌ Yes' if is_in_plate_xy else '✅ No'}")
+                    print(f"     Within plate's XY area: {'L Yes' if is_in_plate_xy else ' No'}")
                     
                     orange_count += 1
         
