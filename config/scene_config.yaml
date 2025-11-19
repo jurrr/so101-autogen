@@ -50,13 +50,18 @@ scene:
       mass: 0.15                # Orange mass 150g
       min_distance: 0.06        # Minimum distance between oranges 6cm
 
-  # Plate Configuration
+  # Yellow Bowl Configuration (styled from existing plate)
   plate:
     model: "Plate"
     usd_path: "assets/objects/Plate/Plate.usd"
     position: [0.165, -0.15, 0.02]  # Corresponds to the default value of args_cli.plate_pos
     scale: 1.0
     use_virtual: true  # Corresponds to the virtual plate object logic in the main script
+    # Yellow bowl styling
+    bowl_styling:
+      color: [1.0, 1.0, 0.0]        # Bright yellow
+      roughness: 0.2                 # Smooth finish
+      metallic: 0.0                  # Non-metallic
     virtual_config:
       radius: 0.1               # Plate radius 10cm (user confirmed)
       height: 0.02

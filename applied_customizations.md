@@ -2,10 +2,27 @@
 
 This file tracks all customizations applied to the SO101 scene configuration and related files.
 
-## Camera Position Analysis (Completed)
+## Camera Position Analysis (Completed) + Applied Customizations
 
-**Date**: Current session  
+**Date**: November 19, 2025  
 **Analysis**: Compared `config/scene_config_recovered.yaml` with current `config/scene_config.yaml`
+
+### Applied Customizations ✅
+
+#### 1. Front Camera Orientation Applied
+- **From**: `[0.65328, 0.2706, 0.2706, 0.65328]` (original)
+- **To**: Custom orientation via user testing (93° right, 30° down)
+- **Status**: Applied and tested with data collection
+
+#### 2. Yellow Bowl Styling Applied  
+- **Source**: `config/scene_config_recovered.yaml`
+- **Changes Applied**:
+  - Header: "Yellow Bowl Configuration (styled from existing plate)"
+  - Added `bowl_styling` section:
+    - `color: [1.0, 1.0, 0.0]` (bright yellow)
+    - `roughness: 0.2` (smooth finish)
+    - `metallic: 0.0` (non-metallic)
+- **Result**: Plate now styled as yellow bowl
 
 ### Camera Configuration Status
 
