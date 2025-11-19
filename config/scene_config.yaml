@@ -133,8 +133,8 @@ task:
 cameras:
   
   front_camera:
-    position: [0.52, 0.0, 0.4]
-    orientation: [0.65328, 0.2706, 0.2706, 0.65328]  # (w, x, y, z)
+    position: [0.1, -0.2, 0.7]
+    orientation: [0.670, 0.179, 0, -0.696]  # (w, x, y, z) - 93° right, 30° down
     focal_length: 28.7
     horizontal_aperture: 38.11
     vertical_aperture: 28.58
