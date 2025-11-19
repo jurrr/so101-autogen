@@ -111,6 +111,10 @@ class SceneFactory:
         print("\nApplying candy materials and styling...")
         self._apply_candy_materials(scene_objects, scene_config)
         
+        # FINAL STEP: Enforce white table after everything is set up
+        print("\n🏆 FINAL: Enforcing white table setup...")
+        self._enforce_white_table_final()
+        
         print(f"Orange and plate scene created: {len(scene_objects)} objects.")
         for name in scene_objects.keys():
             print(f"    - {name}")
@@ -310,9 +314,14 @@ class SceneFactory:
             plate_config = scene_config.get('scene', {}).get('plate', {})
             bowl_styling = plate_config.get('bowl_styling', {})
             
-            # Look for environment config in placement section (where it actually is)
-            env_config = scene_config.get('placement', {}).get('environment', {})
+            # Look for environment config in scene section (where world_setup.py expects it)
+            env_config = scene_config.get('scene', {}).get('environment', {})
             table_styling = env_config.get('table_styling', {})
+            
+            # If not found, try placement section as fallback
+            if not table_styling:
+                env_config_placement = scene_config.get('placement', {}).get('environment', {})
+                table_styling = env_config_placement.get('table_styling', {})
             
             print(f"   Debug: Bowl styling: {bowl_styling}")
             print(f"   Debug: Table styling: {table_styling}")
@@ -585,7 +594,7 @@ class SceneFactory:
     
     def _apply_material_to_ground(self, material_info):
         """
-        Applies material to the ground plane.
+        Applies white material to the ground plane to override grid pattern.
         
         Args:
             material_info (dict): Material configuration for the ground
@@ -596,22 +605,132 @@ class SceneFactory:
         try:
             import omni.usd
             stage = omni.usd.get_context().get_stage()
-            ground_prim_path = "/World/defaultGroundPlane"
             
-            ground_prim = stage.GetPrimAtPath(ground_prim_path)
-            if ground_prim.IsValid():
-                print(f"     🪑 Applying table material to: {ground_prim_path}")
-                return self._apply_material_to_object(ground_prim_path, material_info, "White_Table")
-            else:
-                print(f"     ❌ Ground plane not found at: {ground_prim_path}")
-                return False
+            # Try multiple possible ground plane paths
+            possible_ground_paths = [
+                "/World/defaultGroundPlane",
+                "/defaultGroundPlane", 
+                "/World/GroundPlane",
+                "/GroundPlane",
+                "/World/Ground",
+                "/Environment/Ground"
+            ]
+            
+            for ground_prim_path in possible_ground_paths:
+                ground_prim = stage.GetPrimAtPath(ground_prim_path)
+                if ground_prim.IsValid():
+                    print(f"     🪑 Found ground plane at: {ground_prim_path}")
+                    print(f"     🎨 Applying white table material to override grid...")
+                    success = self._apply_material_to_object(ground_prim_path, material_info, "White_Table")
+                    if success:
+                        print(f"     ✅ Successfully applied white material to ground plane!")
+                        return True
+                    else:
+                        print(f"     ⚠️ Failed to apply material to {ground_prim_path}")
+            
+            # If no ground plane found, try to find any prim with "plane" or "ground" in the name
+            print("     🔍 Searching for ground-like prims...")
+            for prim in stage.Traverse():
+                prim_path = str(prim.GetPath())
+                if any(keyword in prim_path.lower() for keyword in ['ground', 'plane']) and prim.IsValid():
+                    if prim.GetTypeName() in ['Mesh', 'Plane', 'Cube']:  # Geometry types
+                        print(f"     🎯 Found potential ground: {prim_path} (type: {prim.GetTypeName()})")
+                        success = self._apply_material_to_object(prim_path, material_info, "White_Table")
+                        if success:
+                            print(f"     ✅ Applied white material to {prim_path}")
+                            return True
+            
+            print(f"     ❌ No ground plane found to apply white material")
+            return False
                 
         except ImportError as e:
             print(f"     ❌ USD libraries not available for table material: {e}")
             return False
         except Exception as e:
             print(f"     ❌ Failed to apply table material: {e}")
+            import traceback
+            print(f"     Error details: {traceback.format_exc()}")
             return False
+    
+    def _enforce_white_table_final(self):
+        """
+        FINAL enforcement of white table - this is the last resort to ensure white surface.
+        Called after all scene setup is complete.
+        """
+        try:
+            import omni.usd
+            import carb
+            from pxr import UsdShade, Sdf, Gf
+            
+            print("🏆 FINAL WHITE TABLE ENFORCEMENT...")
+            
+            stage = omni.usd.get_context().get_stage()
+            if not stage:
+                print("   ⚠️ No USD stage for final enforcement")
+                return
+                
+            # Final nuclear grid removal
+            print("   ☢️  Final nuclear grid removal...")
+            try:
+                settings = carb.settings.get_settings()
+                final_grid_kill = [
+                    "/app/viewport/grid/enabled",
+                    "/app/viewport/displayOptions/showGrid",
+                    "/app/viewport/grid/visible",
+                    "/persistent/app/viewport/displayOptions/showGrid"
+                ]
+                
+                for setting in final_grid_kill:
+                    try:
+                        settings.set_bool(setting, False)
+                        settings.set_float(setting.replace("enabled", "opacity").replace("showGrid", "gridOpacity"), 0.0)
+                    except:
+                        pass
+                        
+            except Exception as e:
+                print(f"   ⚠️ Final grid kill failed: {e}")
+            
+            # Final white material application
+            print("   🤍 Final white material application...")
+            ground_paths = ["/World/defaultGroundPlane", "/defaultGroundPlane", "/World/GroundPlane"]
+            
+            for ground_path in ground_paths:
+                ground_prim = stage.GetPrimAtPath(ground_path)
+                if ground_prim.IsValid():
+                    try:
+                        # Create final white material
+                        material_path = f"/World/Materials/FinalWhite_{ground_path.replace('/', '_')}"
+                        
+                        if stage.GetPrimAtPath(material_path).IsValid():
+                            stage.RemovePrim(material_path)
+                            
+                        material = UsdShade.Material.Define(stage, material_path)
+                        shader_path = f"{material_path}/Shader"
+                        shader = UsdShade.Shader.Define(stage, shader_path)
+                        shader.CreateIdAttr("UsdPreviewSurface")
+                        
+                        # Ultra white settings
+                        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 1.0, 1.0))
+                        shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.05)
+                        shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
+                        shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(1.0)
+                        
+                        material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+                        UsdShade.MaterialBindingAPI(ground_prim).Bind(material.GetPrim())
+                        
+                        print(f"   ✅ Final white material applied to: {ground_path}")
+                        break  # Success, don't try other paths
+                        
+                    except Exception as e:
+                        print(f"   ⚠️ Final white material failed for {ground_path}: {e}")
+                        continue
+            
+            print("   🏆 FINAL WHITE TABLE ENFORCEMENT COMPLETE!")
+            
+        except ImportError:
+            print("   ⚠️ Final enforcement libraries not available")
+        except Exception as e:
+            print(f"   ❌ Final white table enforcement failed: {e}")
 
 
 # Compatibility function to maintain the same interface as the main script.
