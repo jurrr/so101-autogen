@@ -86,14 +86,12 @@ class ConfigManager:
         orange_generation = self.get_config_with_defaults(config, "scene.oranges.generation", {})
         
         return {
-            "count": self.get_config_with_defaults(config, "scene.oranges.count", 3),
+            "count": self.get_config_with_defaults(config, "scene.oranges.count", 1),
             "mass": self.get_config_with_defaults(config, "scene.oranges.physics.mass", 0.15),
             "models": self.get_config_with_defaults(config, "scene.oranges.models", 
-                ["Orange001", "Orange002", "Orange003"]),
+                ["Orange001"]),
             "usd_paths": self.get_config_with_defaults(config, "scene.oranges.usd_paths", [
-                "assets/objects/Orange001/Orange001.usd",
-                "assets/objects/Orange002/Orange002.usd", 
-                "assets/objects/Orange003/Orange003.usd"
+                "assets/objects/Orange001/Orange001.usd"
             ]),
             "x_range": orange_generation.get("x_range", [0.1, 0.2]),
             "y_range": orange_generation.get("y_range", [0.03, 0.23]),
@@ -115,20 +113,6 @@ class ConfigManager:
         return self.get_config_with_defaults(config, "target_configs", {
             "/World/orange1": {
                 "name": "orange1_object",
-                "draw_aabb": True,
-                "aabb_color": (1.0, 1.0, 0.0, 0.5),
-                "draw_obb": True,
-                "obb_color": (0.0, 1.0, 1.0, 1.0),
-            },
-            "/World/orange2": {
-                "name": "orange2_object",
-                "draw_aabb": True,
-                "aabb_color": (1.0, 1.0, 0.0, 0.5),
-                "draw_obb": True,
-                "obb_color": (0.0, 1.0, 1.0, 1.0),
-            },
-            "/World/orange3": {
-                "name": "orange3_object",
                 "draw_aabb": True,
                 "aabb_color": (1.0, 1.0, 0.0, 0.5),
                 "draw_obb": True,

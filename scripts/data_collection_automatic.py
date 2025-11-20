@@ -293,114 +293,113 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
             total_runs += 1
             print(f"\n--- 🎬 Starting Run {total_runs} | Successful Grasps: {successful_grasps}/{total_success_episodes} ---")
             
-            num_oranges = len(scene_manager.get_oranges())
+            # Only one orange now, always target orange1
+            target_index = 1
             
-            for i in range(num_oranges):
-                target_index = i + 1
-                if successful_grasps >= total_success_episodes:
-                    break
+            if successful_grasps >= total_success_episodes:
+                break
 
-                print(f"   🍊 Attempting to grasp target: Orange {target_index}")
-                
-                # Simulate pressing number keys '1', '2', '3' to start grasping
-                keyboard_handler.simulate_key_press(str(target_index))
-                
-                # [Critical Fix] Give the state machine time to react, step a few frames
-                # to force it into the is_busy() state.
-                print("   ...Waiting for state machine to start...")
-                for _ in range(10): # Step 10 frames to ensure state update
-                    world.step(render=not headless)
-                    frame_count += 1
-                    if world.is_playing():
-                        # Core update logic, consistent with the main loop
-                        current_joint_positions = robot.get_joint_positions()
-                        ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
-                        gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
-                        ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
-                        debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
-                        state_machine.update()
-                        ik_controller.execute_control(robot, state_machine)
-                        if not headless:
-                            debug_visualizer.draw_visualizations(world, target_configs, frame_count)
-                        if camera_controller:
-                            camera_controller.update_frame_count()
+            print(f"   🍊 Attempting to grasp target: Orange {target_index}")
+            
+            # Simulate pressing number key '1' to start grasping
+            keyboard_handler.simulate_key_press(str(target_index))
+            
+            # [Critical Fix] Give the state machine time to react, step a few frames
+            # to force it into the is_busy() state.
+            print("   ...Waiting for state machine to start...")
+            for _ in range(10): # Step 10 frames to ensure state update
+                world.step(render=not headless)
+                frame_count += 1
+                if world.is_playing():
+                    # Core update logic, consistent with the main loop
+                    current_joint_positions = robot.get_joint_positions()
+                    ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
+                    gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
+                    ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
+                    debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
+                    state_machine.update()
+                    ik_controller.execute_control(robot, state_machine)
+                    if not headless:
+                        debug_visualizer.draw_visualizations(world, target_configs, frame_count)
+                    if camera_controller:
+                        camera_controller.update_frame_count()
 
-                # Wait for the state machine to complete the current task
-                step_timeout = 60 * 60 # Timeout set to 60 seconds
-                step_count = 0
-                while state_machine.is_busy() and step_count < step_timeout:
-                    world.step(render=not headless)
-                    frame_count += 1
+            # Wait for the state machine to complete the current task
+            step_timeout = 60 * 60 # Timeout set to 60 seconds
+            step_count = 0
+            while state_machine.is_busy() and step_count < step_timeout:
+                world.step(render=not headless)
+                frame_count += 1
+                
+                if world.is_playing():
+                    # 1. Calculate IK and FK data
+                    current_joint_positions = robot.get_joint_positions()
+                    ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
+                    gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
+                    ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
                     
-                    if world.is_playing():
-                        # 1. Calculate IK and FK data
-                        current_joint_positions = robot.get_joint_positions()
-                        ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
-                        gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
-                        ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
-                        
-                        # 2. Always update visualization calculations
-                        debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
-                        
-                        # 3. Update state machine
-                        state_machine.update()
-                        
-                        # 4. Execute IK control
-                        ik_controller.execute_control(robot, state_machine)
-                        
-                        # 5. Draw visualizations if needed
-                        if not headless:
-                            debug_visualizer.draw_visualizations(world, target_configs, frame_count)
-                        
-                        # 6. Update cameras
-                        if camera_controller:
-                            camera_controller.update_frame_count()
+                    # 2. Always update visualization calculations
+                    debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
+                    
+                    # 3. Update state machine
+                    state_machine.update()
+                    
+                    # 4. Execute IK control
+                    ik_controller.execute_control(robot, state_machine)
+                    
+                    # 5. Draw visualizations if needed
+                    if not headless:
+                        debug_visualizer.draw_visualizations(world, target_configs, frame_count)
+                    
+                    # 6. Update cameras
+                    if camera_controller:
+                        camera_controller.update_frame_count()
 
-                    step_count += 1
-                
-                if step_count >= step_timeout:
-                    print(f"   ⚠️ Timed out while grasping Orange {target_index}. Skipping.")
-                    state_machine.fail_current_task() # Handle failure on timeout
+                step_count += 1
+            
+            if step_count >= step_timeout:
+                print(f"   ⚠️ Timed out while grasping Orange {target_index}. Skipping.")
+                state_machine.fail_current_task() # Handle failure on timeout
 
-                # [New] Check if a hard reset was triggered by plate movement
-                if state_machine.get_and_clear_hard_reset_flag():
-                    print("💥 Plate movement caused a critical error, triggering scene reset!")
-                    keyboard_handler.simulate_key_press('r')
-                    # Break out of the inner loop (orange loop) to start the next run
-                    break
+            # [New] Check if a hard reset was triggered by plate movement
+            if state_machine.get_and_clear_hard_reset_flag():
+                print("💥 Plate movement caused a critical error, triggering scene reset!")
+                keyboard_handler.simulate_key_press('r')
+                # Continue to the next run after scene reset
+                continue
 
-                # Get grasp result
-                was_successful = state_machine.get_last_attempt_status()
-                if was_successful:
-                    successful_grasps += 1
-                    print(f"   ✅ Successfully grasped Orange {target_index}! Total successes: {successful_grasps}")
-                else:
-                    print(f"   ❌ Failed to grasp Orange {target_index}. Continuing.")
+            # Get grasp result
+            was_successful = state_machine.get_last_attempt_status()
+            if was_successful:
+                successful_grasps += 1
+                print(f"   ✅ Successfully grasped Orange {target_index}! Total successes: {successful_grasps}")
+            else:
+                print(f"   ❌ Failed to grasp Orange {target_index}. Continuing.")
 
-                # [Critical Fix] Ensure state machine has returned to IDLE before proceeding
-                print("   ...Waiting for state machine to return to IDLE...")
-                idle_wait_timeout = 60 * 5  # 5 second timeout
-                idle_step_count = 0
-                while state_machine.get_current_state() != "IDLE" and idle_step_count < idle_wait_timeout:
-                    world.step(render=not headless)
-                    frame_count += 1
-                    if world.is_playing():
-                        # Core update logic
-                        current_joint_positions = robot.get_joint_positions()
-                        ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
-                        gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
-                        ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
-                        debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
-                        state_machine.update()
-                        ik_controller.execute_control(robot, state_machine)
-                        if not headless:
-                            debug_visualizer.draw_visualizations(world, target_configs, frame_count)
-                        if camera_controller:
-                            camera_controller.update_frame_count()
-                    idle_step_count += 1
-                
-                if idle_step_count >= idle_wait_timeout:
-                    print("   ⚠️ Warning: Timed out waiting for state machine to return to IDLE! Problems may occur.")
+            # [Critical Fix] Ensure state machine has returned to IDLE before proceeding
+            print("   ...Waiting for state machine to return to IDLE...")
+            idle_wait_timeout = 60 * 5  # 5 second timeout
+            idle_step_count = 0
+            while state_machine.get_current_state() != "IDLE" and idle_step_count < idle_wait_timeout:
+                world.step(render=not headless)
+                frame_count += 1
+                if world.is_playing():
+                    # Core update logic
+                    current_joint_positions = robot.get_joint_positions()
+                    ee_pos, ee_rot = ik_controller.compute_forward_kinematics(frame_name="wrist_link", joint_positions=current_joint_positions[:5])
+                    gripper_pos, gripper_rot = ik_controller.compute_forward_kinematics(frame_name="gripper_frame_link", joint_positions=current_joint_positions[:5])
+                    ik_data = (ee_pos, ee_rot, gripper_pos, gripper_rot)
+                    debug_visualizer.update_calculations(world, ik_data, target_configs, frame_count)
+                    state_machine.update()
+                    ik_controller.execute_control(robot, state_machine)
+                    if not headless:
+                        debug_visualizer.draw_visualizations(world, target_configs, frame_count)
+                    if camera_controller:
+                        camera_controller.update_frame_count()
+                idle_step_count += 1
+            
+            if idle_step_count >= idle_wait_timeout:
+                print("   ⚠️ Warning: Timed out waiting for state machine to return to IDLE! Problems may occur.")
             
             if successful_grasps >= total_success_episodes:
                 break

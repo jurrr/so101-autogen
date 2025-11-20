@@ -8,15 +8,11 @@ simulation:
 scene:
   # Oranges Configuration - Smart Avoidance Version
   oranges:
-    count: 3
+    count: 1
     models: 
       - "Orange001"
-      - "Orange002" 
-      - "Orange003"
     usd_paths:
       - "assets/objects/Orange001/Orange001.usd"
-      - "assets/objects/Orange002/Orange002.usd"
-      - "assets/objects/Orange003/Orange003.usd"
     
     # Orange Generation Configuration - Dual-Zone Avoidance
     generation:
@@ -162,18 +158,6 @@ data_collection:
 target_configs:
   "/World/orange1":
     name: "orange1_object"
-    draw_aabb: true
-    aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
-    draw_obb: true
-    obb_color: [0.0, 1.0, 1.0, 1.0]   # Cyan, opaque
-  "/World/orange2":
-    name: "orange2_object"
-    draw_aabb: true
-    aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
-    draw_obb: true
-    obb_color: [0.0, 1.0, 1.0, 1.0]   # Cyan, opaque
-  "/World/orange3":
-    name: "orange3_object"
     draw_aabb: true
     aabb_color: [1.0, 1.0, 0.0, 0.5]  # Yellow, translucent
     draw_obb: true

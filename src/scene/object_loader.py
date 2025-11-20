@@ -62,13 +62,11 @@ class ObjectLoader:
         
         # Orange configuration (styled to look like different candies)
         oranges_config = config.get('scene', {}).get('oranges', {})
-        self.orange_models = oranges_config.get('models', ["Orange001", "Orange002", "Orange003"])
+        self.orange_models = oranges_config.get('models', ["Orange001"])
         self.orange_usd_paths = oranges_config.get('usd_paths', [
-            "assets/objects/Orange001/Orange001.usd",
-            "assets/objects/Orange002/Orange002.usd", 
-            "assets/objects/Orange003/Orange003.usd"
+            "assets/objects/Orange001/Orange001.usd"
         ])
-        self.orange_count = oranges_config.get('count', 3)
+        self.orange_count = oranges_config.get('count', 1)
         
         # Candy type configurations
         self.candy_types = oranges_config.get('candy_types', {})
@@ -171,48 +169,44 @@ class ObjectLoader:
         try:
             print(f"� Loading {self.orange_count} candy objects...")
             
-            # Generate random positions
-            print(f"<� Generating {self.orange_count} random positions for candy objects...")
-            random_positions = self.position_generator.generate_random_orange_positions(self.orange_count)
+            # Generate random position for single candy object
+            print(f"<� Generating 1 random position for candy object...")
+            random_positions = self.position_generator.generate_random_orange_positions(1)
             
-            # Ensure at least 3 positions are set for compatibility
+            # Only one candy position
             candy1_reset_pos = random_positions[0] if len(random_positions) > 0 else [0.2, 0.1, 0.1]
-            candy2_reset_pos = random_positions[1] if len(random_positions) > 1 else [0.25, 0.15, 0.1] 
-            candy3_reset_pos = random_positions[2] if len(random_positions) > 2 else [0.15, 0.05, 0.1]
             
-            positions = [candy1_reset_pos, candy2_reset_pos, candy3_reset_pos]
+            positions = [candy1_reset_pos]
             
-            for i, pos in enumerate(positions[:3]):
-                model_name = self.orange_models[i] if i < len(self.orange_models) else f"Orange00{i+1}"
-                candy_info = self.candy_types.get(model_name, {})
-                candy_name = candy_info.get('name', f'Candy {i+1}')
-                print(f"<l {candy_name} random position: [{pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f}]")
+            # Print the single candy position
+            model_name = self.orange_models[0]
+            candy_info = self.candy_types.get(model_name, {})
+            candy_name = candy_info.get('name', 'Candy 1')
+            print(f"<l {candy_name} random position: [{positions[0][0]:.3f}, {positions[0][1]:.3f}, {positions[0][2]:.3f}]")
             
-            # Load the candy objects
+            # Load the single candy object
             orange_objects = {}
             orange_reset_positions = {}
             
-            for i in range(min(self.orange_count, len(self.orange_usd_paths))):
-                usd_path = self.orange_usd_paths[i]
-                model_name = self.orange_models[i]
-                prim_path = f"/World/orange{i+1}"
-                object_name = f"orange{i+1}_object"
-                position = positions[i]
-                
-                # Get candy-specific mass
-                candy_info = self.candy_types.get(model_name, {})
-                default_mass = 0.007  # Default candy mass
-                candy_mass = candy_info.get('mass', default_mass)
-                
-                # Load using the helper function
-                orange = self.load_orange(world, usd_path, prim_path, position, object_name, model_name, candy_mass)
-                
-                if orange is not None:
-                    orange_objects[object_name] = orange
-                    orange_reset_positions[object_name] = position
-                    candy_name = candy_info.get('name', f'Candy {i+1}')
-                    print(f" {candy_name} loaded: {object_name}")
+            usd_path = self.orange_usd_paths[0]
+            model_name = self.orange_models[0]
+            prim_path = "/World/orange1"
+            object_name = "orange1_object"
+            position = positions[0]
             
+            # Get candy-specific mass
+            candy_info = self.candy_types.get(model_name, {})
+            default_mass = 0.007  # Default candy mass
+            candy_mass = candy_info.get('mass', default_mass)
+            
+            # Load using the helper function
+            orange = self.load_orange(world, usd_path, prim_path, position, object_name, model_name, candy_mass)
+            
+            if orange is not None:
+                orange_objects[object_name] = orange
+                orange_reset_positions[object_name] = position
+                candy_name = candy_info.get('name', 'Candy 1')
+                print(f" {candy_name} loaded: {object_name}")
             self.orange_objects = orange_objects
             self.orange_reset_positions = orange_reset_positions
             
