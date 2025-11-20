@@ -100,11 +100,18 @@ rm -rf /mnt/outputs/temp/
 
 ## 5. train smolvla model based on examples
 
-**Important: Upgrade to LeRobot 0.4.1 for training (after conversion is complete)**
+**Important: Install LeRobot 0.4.1 in isaac environment for training (after conversion is complete)**
 
 ```
+conda activate isaac
 pip install lerobot==0.4.1
+pip install transformers  # Ensure transformers is available in isaac env
 ```
+
+**Note: Training must be run in the isaac conda environment**
+- The isaac environment has all the necessary dependencies for Isaac Sim integration
+- LeRobot 0.4.1 and transformers must be installed in the isaac environment 
+- Flash-attn installation errors can be ignored (optional dependency)
 
 First install FFmpeg and fix video codec compatibility
 
@@ -121,28 +128,35 @@ pip install "numpy<2"
 Train the model from scratch using the working v2.1 dataset (outputs saved to large drive to avoid storage issues)
 
 ```
+# Ensure you're in the isaac environment
+conda activate isaac
+
 # Create output directory on large drive for model training
 export LEROBOT_CACHE_DIR=/mnt/outputs
 
-lerobot-train \
+# ✅ SUCCESSFUL COMMAND - Tested and working in isaac environment:
+export LEROBOT_CACHE_DIR=/mnt/outputs && lerobot-train \
     --batch_size=64 \
-    --steps=1000 \
+    --steps=100 \
     --dataset.repo_id=jurrr/pickup_orange_100e_v033 \
     --dataset.video_backend=pyav \
     --policy.device=cuda \
-    --policy.type=diffusion \
+    --policy.type=smolvla \
     --wandb.enable=false \
-    --policy.repo_id=jurrr/pickup_orange_100e_v033_policy \
+    --policy.repo_id=jurrr/pickup_orange_100e_v033_policy_vlm \
     --save_freq=200 \
-    --job_name=smolvla_100e_1k \
-    --output_dir=/mnt/outputs/smolvla_100e_1k
+    --job_name=smolvla_100e_1k_vlm \
+    --output_dir=/mnt/outputs/smolvla_100e_100_vlm
 ```
 
 **Key Parameters:**
 - `--dataset.video_backend=pyav`: Uses PyAV instead of TorchCodec (fixes video compatibility issues)
-- Training on LeRobot 0.4.1 with modern diffusion policy
+- `--policy.type=smolvla`: Uses Small VLA architecture instead of plain diffusion
+- `--policy.vlm_model_name` (default): Uses HuggingFaceTB/SmolVLM2-500M-Video-Instruct for vision-language understanding
+- **Environment**: Must run in `conda activate isaac` environment ✅
+- Training on LeRobot 0.4.1 with modern SmolVLA policy
 - Dataset: 13,315 frames from 29 episodes with proper frame-level structure
-- Output: Trained policy uploaded to `jurrr/pickup_orange_100e_v033_policy`
+- Output: Trained policy uploaded to `jurrr/pickup_orange_100e_v033_policy_vlm`
 
 ## 6. Monitor and cleanup storage
 
@@ -167,14 +181,15 @@ tar -czf /mnt/datasets_archive_$(date +%Y%m%d).tar.gz -C /mnt datasets/
    - Task format compatibility issues resolved
    - Creates proper frame-level dataset structure
 
-2. **Model Training** (Step 5): Upgrade to `lerobot==0.4.1` 
-   - Modern diffusion policy implementation
-   - Better training algorithms and optimizations
+2. **Model Training** (Step 5): Use `lerobot==0.4.1` in isaac environment
+   - **Critical**: Must run `conda activate isaac` before training
+   - SmolVLA policy implementation (more efficient than diffusion)
+   - Vision-Language Model integration for better scene understanding
    - Uses PyAV backend for video compatibility
    - Trains on the v2.1 dataset created in step 4
 
 **Final Results:**
 - ✅ Dataset: `jurrr/pickup_orange_100e_v033` (13,315 frames, 29 episodes)
-- ✅ Trained Policy: `jurrr/pickup_orange_100e_v033_policy` (267M parameters, loss: 0.018)
+- ✅ Trained Policy: `jurrr/pickup_orange_100e_v033_policy_vlm` (SmolVLA with VLM)
 
 
