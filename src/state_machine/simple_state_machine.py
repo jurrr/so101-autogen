@@ -121,8 +121,8 @@ class SimpleGraspingStateMachine:
         self.lift_step_size = move_config.get('lift_step_m', 0.002)
         
         # Gripper close angle random range
-        self.close_angle_min = grasp_config.get('close_angle_percent_min', 0.225)
-        self.close_angle_max = grasp_config.get('close_angle_percent_max', 0.225)
+        self.close_angle_min = grasp_config.get('close_angle_percent_min', 0.2)
+        self.close_angle_max = grasp_config.get('close_angle_percent_max', 0.2)
 
         # Thresholds
         self.posture_threshold_deg = 5.0      # Posture adjustment angle threshold (degrees)
@@ -481,9 +481,18 @@ class SimpleGraspingStateMachine:
         
         try:
             target_pos, _ = self.target_object.get_world_pose()
-            approach_pos = np.array([target_pos[0], target_pos[1], self.approach_height])
+            
+            # Add a small offset to avoid gripper edge collision with cube edge
+            # Offset by 0.005m (0.5cm) in both X and Y to center better over the cube
+            xy_offset = 0.01  # 5mm offset to avoid edge collision
+            approach_pos = np.array([
+                target_pos[0]  ,
+                target_pos[1] + xy_offset, 
+                self.approach_height
+            ])
+            
             self._start_smooth_move(approach_pos, self.travel_horizontal_speed)
-            print(f"🚀 Approaching target: {target_pos[:2]} -> Height {self.approach_height}m")
+            print(f"🚀 Approaching target: [{target_pos[0]:.3f}, {target_pos[1]:.3f}] with {xy_offset*1000:.1f}mm offset -> Height {self.approach_height}m")
         except Exception as e:
             print(f"❌ Failed to approach target: {e}")
             self._transition_to_state(SimpleGraspingState.FAILED)

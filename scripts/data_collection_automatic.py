@@ -276,7 +276,7 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
 
         # Simulate pressing 'V' to ensure debug visualization is off
         print("🙈 Hiding debug visualizations...")
-        keyboard_handler.simulate_key_press('v')
+        #keyboard_handler.simulate_key_press('v')
         # Step a few frames to ensure it takes effect
         for _ in range(10):
             world.step(render=not headless)

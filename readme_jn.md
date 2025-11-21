@@ -75,7 +75,8 @@ If you need v3.0 format for newer LeRobot features:
 pip install lerobot==0.4.1
 
 # Convert v2.1 dataset to v3.0 format 
-python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrrpickup_custom_orange_100e_v033
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrr/pickup_custom_orange_100e_v033 
 
 # This creates a v3.0 dataset (may need manual upload to Hub)
 
@@ -127,8 +128,8 @@ export LEROBOT_CACHE_DIR=/mnt/outputs && lerobot-train \
     --wandb.enable=false \
     --policy.repo_id=jurrr/pickup_custom_orange_100e_v033_policy_vlm \
     --save_freq=200 \
-    --job_name=smolvla_100e_1k_vlm \
-    --output_dir=/mnt/outputs/smolvla_100e_100_vlm
+    --job_name=smolvla_custom_orange_100e_vlm \
+    --output_dir=/mnt/outputs/smolvla_custom_oeange_100e_100_vlm
 ```
 
 **Key Parameters:**

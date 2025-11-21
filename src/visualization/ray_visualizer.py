@@ -53,15 +53,20 @@ class RayVisualizer:
             ray_direction_green = gripper_rot @ direction_local_green
             
             # Green ray origin: gripper position + offset
-            offset_local_green = np.array([0, 0, -0.04])
+            # Increased offset for cubes to avoid edge collision
+            # Changed from -0.04 to -0.06 (6cm below gripper center)
+            # This ensures the green ray only triggers when gripper is deeper into the object
+            offset_local_green = np.array([0, 0, -0.02])
             offset_world_green = gripper_rot @ offset_local_green
             ray_origin_green = gripper_pos + offset_world_green
             ray_end_point_green = ray_origin_green + ray_direction_green * self.ray_length
 
             # Purple ray: Up from gripper (local positive Z-axis)
+            offset_local_purple = np.array([0, 0, 0])
+            offset_world_purple = gripper_rot @ offset_local_purple
+            ray_origin_purple = gripper_pos + offset_world_purple
             direction_local_purple = np.array([0, 0, 1])
             ray_direction_purple = gripper_rot @ direction_local_purple
-            ray_origin_purple = gripper_pos
             ray_end_point_purple = ray_origin_purple + ray_direction_purple * self.ray_length
 
             rays_info = {
@@ -95,7 +100,7 @@ class RayVisualizer:
             return {}
 
     def get_rays_for_drawing(self, rays_info, is_enabled=True):
-        """
+        """     
         Gets the data for drawing the rays.
         
         Args:
