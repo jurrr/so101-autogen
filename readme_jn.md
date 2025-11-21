@@ -26,16 +26,14 @@ conda activate isaac
 **Note: Datasets are stored on the large drive (/mnt/datasets) to avoid storage issues**
 
 ```
-python scripts/data_collection_automatic.py --total-success-episodes 10 --data-output ./datasets/auto_v1_10.hdf5
-python scripts/data_collection_automatic.py --total-success-episodes 5 --data-output ./datasets/auto_v1_5.hdf5 
-python scripts/data_collection_automatic.py --total-success-episodes 100 --data-output ./datasets/auto_v1_100.hdf5 
+python scripts/data_collection_automatic.py --total-success-episodes 100 --data-output ./datasets/custom_orange_v1_100.hdf5
 ```
 
 
 ## 3. optional: show the examples generated
 
 ```
-python scripts/hdf5_visualizer.py --hdf5_file ./datasets/auto_v1_10.hdf5
+python scripts/hdf5_visualizer.py --hdf5_file ./datasets/custom_orange_v1_100.hdf5
 ```
 
 ## 4. convert to lerobot format
@@ -60,14 +58,14 @@ mkdir -p $HF_HOME $TMPDIR
 # Convert to v2.1 format (works with current task format)
 python scripts/parallel_converter.py \
     --hdf5-root ./datasets \
-    --hdf5-files auto_v1_100.hdf5 \
-    --repo-id jurrr/pickup_orange_100e_v033 \
+    --hdf5-files custom_orange_v1_100.hdf5 \
+    --repo-id jurrr/pickup_custom_orange_100e_v033 \
     --num-workers 4 \
     --python-executable /home/windowsuser/miniconda3/envs/isaac/bin/python \
     --push-to-hub
 ```
 
-**Result:** Dataset `jurrr/pickup_orange_100e_v033` with 13,315 individual frames ✅
+**Result:** Dataset `jurrr/pickup_custom_orange_100e_v033` with 13,315 individual frames ✅
 
 **Optional: Convert to v3.0 format for latest LeRobot compatibility**
 
@@ -77,26 +75,10 @@ If you need v3.0 format for newer LeRobot features:
 pip install lerobot==0.4.1
 
 # Convert v2.1 dataset to v3.0 format 
-python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrr/pickup_orange_100e_v033
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrrpickup_custom_orange_100e_v033
 
 # This creates a v3.0 dataset (may need manual upload to Hub)
-```
 
-Cleanup of large datasets after creation
-``` 
-# Large datasets are now stored on /mnt drive (176GB available)
-# Remove old/large datasets when needed:
-rm /mnt/datasets/automatic_collection.hdf5
-rm /mnt/datasets/auto_v1_1000.hdf5
-
-# Or remove from symlinked path:
-rm ./datasets/automatic_collection.hdf5
-rm ./datasets/auto_v1_1000.hdf5
-
-# Clean up conversion cache and temporary files after successful upload:
-rm -rf /mnt/outputs/.cache/huggingface/lerobot/
-rm -rf /mnt/outputs/temp/
-``` 
 
 ## 5. train smolvla model based on examples
 
@@ -138,12 +120,12 @@ export LEROBOT_CACHE_DIR=/mnt/outputs
 export LEROBOT_CACHE_DIR=/mnt/outputs && lerobot-train \
     --batch_size=64 \
     --steps=100 \
-    --dataset.repo_id=jurrr/pickup_orange_100e_v033 \
+    --dataset.repo_id=jurrr/pickup_custom_orange_100e_v033 \
     --dataset.video_backend=pyav \
     --policy.device=cuda \
     --policy.type=smolvla \
     --wandb.enable=false \
-    --policy.repo_id=jurrr/pickup_orange_100e_v033_policy_vlm \
+    --policy.repo_id=jurrr/pickup_custom_orange_100e_v033_policy_vlm \
     --save_freq=200 \
     --job_name=smolvla_100e_1k_vlm \
     --output_dir=/mnt/outputs/smolvla_100e_100_vlm
