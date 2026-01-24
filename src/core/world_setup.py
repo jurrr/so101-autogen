@@ -619,3 +619,31 @@ class WorldSetup:
         if self.world is not None:
             return self.world.is_playing()
         return False
+    
+    def set_viewport_camera(self, position, target):
+        """
+        Sets the viewport camera position and target.
+        
+        Args:
+            position: Camera position [x, y, z]
+            target: Camera look-at target [x, y, z]
+        """
+        try:
+            import omni.kit.viewport.utility
+            from pxr import Gf
+            
+            viewport = omni.kit.viewport.utility.get_active_viewport()
+            if viewport:
+                viewport.set_camera_position(
+                    "/OmniverseKit_Persp",
+                    Gf.Vec3d(position[0], position[1], position[2]),
+                    True
+                )
+                viewport.set_camera_target(
+                    "/OmniverseKit_Persp",
+                    Gf.Vec3d(target[0], target[1], target[2]),
+                    True
+                )
+                print(f"✅ Set viewport camera: pos={position}, target={target}")
+        except Exception as e:
+            print(f"⚠️ Failed to set viewport camera: {e}")

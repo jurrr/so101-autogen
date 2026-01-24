@@ -26,29 +26,41 @@ def backup_original(usd_path):
         print(f"ℹ️ Backup already exists: {backup_path}")
     return backup_path
 
-def create_cube_mesh(stage, prim_path, size=0.05):
+def create_cube_mesh(stage, prim_path, size=0.05, width=None, depth=None, height=None, rotation_z_degrees=0):
     """
     Create a cube mesh at the specified prim path.
     
     Args:
         stage: USD stage
         prim_path: Path where the cube should be created
-        size: Size of the cube (half-extent)
+        size: Default size of the cube (half-extent) - used if width/depth/height not specified
+        width: Width of the cube (X dimension, half-extent). If None, uses size
+        depth: Depth of the cube (Y dimension, half-extent). If None, uses size
+        height: Height of the cube (Z dimension, half-extent). If None, uses size
+        rotation_z_degrees: DEPRECATED - rotation is now applied at the transform level, not vertices
     
     Returns:
         UsdGeom.Mesh: The created cube mesh
     """
-    # Define cube vertices (8 corners)
-    s = size
+    import math
+    
+    # Define cube dimensions (half-extents)
+    # If custom dimensions provided, use them; otherwise use uniform size
+    sx = width if width is not None else size   # X dimension (width)
+    sy = depth if depth is not None else size   # Y dimension (depth)
+    sz = height if height is not None else size # Z dimension (height)
+    
+    # Define cube vertices (8 corners) - NO rotation applied to vertices
+    # Rotation is handled by USD transform operations instead
     points = [
-        (-s, -s, -s),  # 0: bottom-back-left
-        ( s, -s, -s),  # 1: bottom-back-right
-        ( s,  s, -s),  # 2: bottom-front-right
-        (-s,  s, -s),  # 3: bottom-front-left
-        (-s, -s,  s),  # 4: top-back-left
-        ( s, -s,  s),  # 5: top-back-right
-        ( s,  s,  s),  # 6: top-front-right
-        (-s,  s,  s),  # 7: top-front-left
+        (-sx, -sy, -sz),  # 0: bottom-back-left
+        ( sx, -sy, -sz),  # 1: bottom-back-right
+        ( sx,  sy, -sz),  # 2: bottom-front-right
+        (-sx,  sy, -sz),  # 3: bottom-front-left
+        (-sx, -sy,  sz),  # 4: top-back-left
+        ( sx, -sy,  sz),  # 5: top-back-right
+        ( sx,  sy,  sz),  # 6: top-front-right
+        (-sx,  sy,  sz),  # 7: top-front-left
     ]
     
     # Define faces (6 faces, each with 4 vertices)
@@ -190,15 +202,21 @@ def add_collision_properties(stage, mesh_prim_path):
     except Exception as e:
         print(f"⚠️ Failed to add collision properties: {e}")
 
-def convert_orange_to_cube(usd_path, cube_size=0.025):
+def convert_orange_to_cube(usd_path, cube_size=0.025, width=None, depth=None, height=None, rotation_z_degrees=0):
     """
     Convert Orange001 USD file from sphere to cube.
     
     Args:
         usd_path: Path to the Orange001.usd file
-        cube_size: Half-extent of the cube (default: 0.025 = 5cm cube)
+        cube_size: Half-extent of the cube (default, used if width/depth/height not specified)
+        width: Width of the cube (X dimension, half-extent)
+        depth: Depth of the cube (Y dimension, half-extent)
+        height: Height of the cube (Z dimension, half-extent)
+        rotation_z_degrees: Rotation around Z-axis in degrees
     """
     print(f"\n🔄 Converting {usd_path} to cube...")
+    if rotation_z_degrees != 0:
+        print(f"   Rotation: {rotation_z_degrees}° around Z-axis")
     
     # Backup the original file
     backup_path = backup_original(usd_path)
@@ -263,8 +281,49 @@ def convert_orange_to_cube(usd_path, cube_size=0.025):
         print(f"      ✅ Removed original sphere mesh")
         
         # Create the new cube mesh at the same path
-        cube_mesh = create_cube_mesh(stage, mesh_path, size=cube_size)
-        print(f"      ✅ Created cube mesh (size: {cube_size*2}m = {cube_size*200}cm)")
+        cube_mesh = create_cube_mesh(stage, mesh_path, size=cube_size, width=width, depth=depth, height=height, rotation_z_degrees=rotation_z_degrees)
+        
+        # Apply rotation transform to the parent Xform (ALWAYS, to clear old rotation if needed)
+        # This ensures the bounding box visualization also rotates
+        # Find the parent Xform prim (Orange001 level)
+        mesh_path_str = str(mesh_path)
+        if "Orange001" in mesh_path_str:
+            # Get the Orange001 Xform prim
+            parent_path = None
+            for part in ["/root/Orange001", "/Orange001"]:
+                test_prim = stage.GetPrimAtPath(part)
+                if test_prim.IsValid() and test_prim.GetTypeName() == "Xform":
+                    parent_path = part
+                    break
+            
+            if parent_path:
+                parent_prim = stage.GetPrimAtPath(parent_path)
+                xformable = UsdGeom.Xformable(parent_prim)
+                
+                # Check if rotateZ operation already exists
+                existing_ops = xformable.GetOrderedXformOps()
+                rotate_op = None
+                
+                for op in existing_ops:
+                    if op.GetOpType() == UsdGeom.XformOp.TypeRotateZ:
+                        rotate_op = op
+                        break
+                
+                # If no existing rotateZ op, create one
+                if rotate_op is None:
+                    rotate_op = xformable.AddRotateZOp()
+                
+                # Set the rotation value (in degrees) - even if 0 to clear old values
+                rotate_op.Set(rotation_z_degrees)
+                
+                print(f"      🔄 Set Z-rotation to {rotation_z_degrees}° on {parent_path}")
+        
+        # Calculate actual dimensions for display
+        actual_width = (width if width is not None else cube_size) * 2 * 100  # Convert to cm
+        actual_depth = (depth if depth is not None else cube_size) * 2 * 100
+        actual_height = (height if height is not None else cube_size) * 2 * 100
+        rotation_info = f" (rotated {rotation_z_degrees}°)" if rotation_z_degrees != 0 else ""
+        print(f"      ✅ Created cube mesh: {actual_width:.1f}cm(W) x {actual_depth:.1f}cm(D) x {actual_height:.1f}cm(H){rotation_info}")
         
         # Apply orange material to visual meshes
         if is_visual or not is_collision:
@@ -289,6 +348,41 @@ def main():
     print("🔷 Orange001 Sphere to Cube Converter")
     print("=" * 60)
     
+    # Get script directory first
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Load configuration
+    config_path = os.path.join(script_dir, "config/scene_config.yaml")
+    print(f"\n📋 Loading configuration from: {config_path}")
+    
+    try:
+        import yaml
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Get cube dimensions from config
+        obj_geom = config.get('object_geometry', {})
+        cube_config = obj_geom.get('cube', {})
+        
+        width = cube_config.get('width', 0.01)
+        depth = cube_config.get('depth', 0.01)
+        height = cube_config.get('height', 0.005)
+        rotation_z = cube_config.get('rotation_z_degrees', 45)
+        
+        print(f"✅ Loaded cube dimensions from config:")
+        print(f"   Width:  {width*2*100:.1f}cm (half-extent: {width*100:.1f}cm)")
+        print(f"   Depth:  {depth*2*100:.1f}cm (half-extent: {depth*100:.1f}cm)")
+        print(f"   Height: {height*2*100:.1f}cm (half-extent: {height*100:.1f}cm)")
+        print(f"   Rotation: {rotation_z}°")
+        
+    except Exception as e:
+        print(f"⚠️ Could not load config: {e}")
+        print("Using default dimensions: 2cm x 2cm x 1cm")
+        width = 0.01
+        depth = 0.01
+        height = 0.005
+        rotation_z = 45
+    
     # Path to the Orange001 USD file
     script_dir = os.path.dirname(os.path.abspath(__file__))
     orange_usd_path = os.path.join(script_dir, "assets/objects/Orange001/Orange001.usd")
@@ -300,11 +394,14 @@ def main():
     
     print(f"\n📁 Input file: {orange_usd_path}")
     
-    # Convert the orange to a cube
-    # Original orange: ~5cm diameter
-    # Target: 80% scale = 4cm cube
-    # cube_size is half-extent, so: 4cm / 2 = 2cm = 0.02m
-    success = convert_orange_to_cube(orange_usd_path, cube_size=0.02)
+    # Convert the orange to a cube with dimensions from config
+    success = convert_orange_to_cube(
+        orange_usd_path, 
+        width=width,
+        depth=depth,
+        height=height,
+        rotation_z_degrees=rotation_z
+    )
     
     if success:
         print("\n" + "=" * 60)

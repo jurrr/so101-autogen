@@ -22,6 +22,19 @@ class RayVisualizer:
         """
         self.draw = draw_interface
         self.ray_length = 0.5  # Length of the rays
+        
+        # Load green ray offset from config
+        try:
+            from src.config.config_loader import get_config_loader
+            config_loader = get_config_loader()
+            obj_geom = config_loader.get_object_geometry_config()
+            gripper_approach = obj_geom.get('gripper_approach', {})
+            self.green_ray_offset_z = gripper_approach.get('green_ray_offset_z', -0.0025)
+            logger.info(f"✅ Loaded green ray offset from config: {self.green_ray_offset_z*1000:.1f}mm")
+        except Exception as e:
+            self.green_ray_offset_z = -0.0025
+            logger.warning(f"⚠️ Could not load green ray offset from config: {e}, using default: {self.green_ray_offset_z*1000:.1f}mm")
+        
         logger.info("🌈 Ray visualizer initialized.")
 
     def calculate_rays(self, ee_pos, ee_rot, gripper_pos, gripper_rot):
@@ -52,11 +65,8 @@ class RayVisualizer:
             direction_local_green = np.array([-1, 0, 0])
             ray_direction_green = gripper_rot @ direction_local_green
             
-            # Green ray origin: gripper position + offset
-            # Increased offset for cubes to avoid edge collision
-            # Changed from -0.04 to -0.06 (6cm below gripper center)
-            # This ensures the green ray only triggers when gripper is deeper into the object
-            offset_local_green = np.array([0, 0, -0.02])
+            # Green ray origin: gripper position + offset (loaded from config)
+            offset_local_green = np.array([0, 0, self.green_ray_offset_z])
             offset_world_green = gripper_rot @ offset_local_green
             ray_origin_green = gripper_pos + offset_world_green
             ray_end_point_green = ray_origin_green + ray_direction_green * self.ray_length

@@ -4,6 +4,26 @@ simulation:
   headless: false
   stage_units_in_meters: 1.0
 
+# Viewport Camera Configuration (for Isaac Sim GUI)
+viewport_camera:
+  position: [0.5, -0.3, 0.4]     # Camera position (closer to workspace)
+  target: [0.2, 0.0, 0.05]       # Look at point (center of workspace)
+
+# Object Geometry Configuration
+object_geometry:
+  # Cube dimensions (half-extents in meters)
+  cube:
+    width: 0.015          # 3cm width (half-extent = 1.5cm)
+    depth: 0.015          # 3cm depth (half-extent = 1.5cm)
+    height: 0.015         # 3cm height (half-extent = 1.5cm)
+    rotation_z_degrees: 0   # Rotation around Z-axis (0 = aligned with gripper)
+  
+  # Gripper approach parameters (auto-scaled with object size)
+  gripper_approach:
+    green_ray_offset_z: -0.020      # Green ray Z offset (m) - detection trigger (20mm below gripper)
+    xy_approach_offset: -0.010      # XY centering offset (m) - slides alongside object edge (10mm)
+    grasp_height_offset: 0.020      # Height offset above object (m)
+
 # Scene Object Configuration
 scene:
   # Oranges Configuration - Smart Avoidance Version
@@ -211,12 +231,13 @@ state_machine_control:
   # Grasping Phase
   grasping:
     # Gripper close angle range (percentage, 0.0=fully closed, 1.0=fully open)
-    close_angle_percent_min: 0.18
-    close_angle_percent_max: 0.235
+    # For 3cm cube: close almost fully
+    close_angle_percent_min: 0.0
+    close_angle_percent_max: 0.02
     # Gripper close duration (seconds)
-    close_duration_s: 0.75
+    close_duration_s: 1.5
     # Duration to wait after grasping for the object to settle, in seconds
-    settle_duration_s: 0.35
+    settle_duration_s: 1.0
   # Movement Speeds
   movement_speeds:
     # High-altitude fast movement speed (m/physics step), for APPROACH, TRANSPORT, RETURN_HOME

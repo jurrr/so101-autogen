@@ -184,6 +184,22 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         scene_manager.set_orange_reset_positions(orange_reset_positions)
         print("✅ Scene Manager initialized successfully")
         
+        # 11.5. Set viewport camera zoom
+        print("\n📹 Step 11.5: Setting viewport camera")
+        try:
+            viewport_config = scene_config.get('viewport_camera', {})
+            if viewport_config:
+                cam_pos = viewport_config.get('position', [0.5, -0.3, 0.4])
+                cam_target = viewport_config.get('target', [0.2, 0.0, 0.05])
+                world_setup.set_viewport_camera(cam_pos, cam_target)
+                # Step to apply camera change
+                world.step(render=not headless)
+                print(f"✅ Viewport camera set: position={cam_pos}, target={cam_target}")
+            else:
+                print("ℹ️ No viewport camera config found, using default")
+        except Exception as e:
+            print(f"⚠️ Failed to set viewport camera: {e}")
+        
         # 12. Create camera controller
         print("\n📷 Step 12: Creating camera controller")
         try:
@@ -223,7 +239,9 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         if enable_data_collection:
             print("\n📊 Step 15: Creating Data Collection Manager")
             output_dir = os.path.dirname(data_output)
-            os.makedirs(output_dir, exist_ok=True)
+            # Only create directory if it doesn't exist (skip for symlinks)
+            if output_dir and not (os.path.exists(output_dir) or os.path.islink(output_dir)):
+                os.makedirs(output_dir, exist_ok=True)
             
             from src.data_collection import DataCollectionManager
             data_collection_manager = DataCollectionManager(

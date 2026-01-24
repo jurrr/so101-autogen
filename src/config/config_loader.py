@@ -130,6 +130,10 @@ class ConfigLoader:
         """Gets the grasp detection config, corresponding to GRASP_DETECTION_CONFIG in the main script."""
         return self.config.get('grasp_detection', {})
     
+    def get_object_geometry_config(self) -> Dict[str, Any]:
+        """Gets the object geometry config for cube dimensions and gripper parameters."""
+        return self.config.get('object_geometry', {})
+    
     def update_from_command_line(self, args):
         """Updates the configuration from command-line arguments."""
         if hasattr(args, 'headless') and args.headless is not None:
