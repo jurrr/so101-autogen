@@ -223,7 +223,9 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         if enable_data_collection:
             print("\n📊 Step 15: Creating Data Collection Manager")
             output_dir = os.path.dirname(data_output)
-            os.makedirs(output_dir, exist_ok=True)
+            # Handle existing directories or symlinks gracefully
+            if output_dir and not (os.path.exists(output_dir) or os.path.islink(output_dir)):
+                os.makedirs(output_dir, exist_ok=True)
             
             from src.data_collection import DataCollectionManager
             data_collection_manager = DataCollectionManager(
