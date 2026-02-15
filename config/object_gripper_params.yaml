@@ -1,0 +1,150 @@
+# Object and Gripper Parameter Configuration
+# All grasp-specific tuning knobs live here so you can swap targets or tweak the
+# gripper without touching the main scene config.
+
+object:
+  name: "orange_cube"
+  count: 1
+  models:
+    - "Orange001"
+  usd_paths:
+    - "assets/objects/Orange001/Orange001.usd"
+  mass: 0.15              # kilograms
+  shape_type: cube
+  shape_dimensions:
+    edge_length_m: 0.04
+  generation:
+    x_range: [0.1, 0.35]
+    y_range: [-0.25, 0.25]
+    z_drop_height: 0.05
+    max_attempts: 50
+    exclusion_zones:
+      - name: "robot_arm_zone"
+        type: "rectangle"
+        bounds:
+          x: [-0.1, 0.1]
+          y: [-0.05, 0.05]
+          z: [0.0, 0.05]
+      - name: "plate_zone"
+        type: "circle"
+        center_from: "plate_position"
+        radius: 0.12
+        z: [0.0, 0.2]
+  physics:
+    radius: 0.025
+    height: 0.05
+    min_distance: 0.06
+  cube_conversion:
+    half_extent_m: 0.02   # 4 cm cube (half extent = 2 cm = 0.02 m)
+
+placement:
+  safety_distances:
+    min_distance_between_objects: 0.03
+    min_distance_from_edge: 0.02
+    min_distance_from_robot: 0.06
+    min_distance_from_plate: 0.12
+  placement_limits:
+    max_x_distance: 0.30
+    max_y_distance: 0.20
+  object_sizes:
+    orange:
+      radius: 0.025
+      height: 0.05
+    plate:
+      radius: 0.10
+      height: 0.02
+    default:
+      radius: 0.05
+      height: 0.10
+
+gripper_joint:
+  joint_name: "gripper"
+  open_position_rad: 1.74533
+  closed_position_rad: 0.0
+
+gripper_controller:
+  step_size: 0.01
+
+manual_control:
+  step_sizes:
+    linear_step_m: 0.008
+    vertical_step_m: 0.006
+    gripper_step_rad: 0.04
+    slow_multiplier: 0.25
+    fast_multiplier: 2.0
+  workspace_limits:
+    x: [0.19, 0.33]
+    y: [-0.18, 0.18]
+    z: [0.15, 0.36]
+  status_interval_s: 1.2
+
+state_machine_control:
+  grasping:
+    auto_percent_from_object: true
+    percent_band: 0.0
+    close_angle_percent_min: 0.18  # Fallback if auto disabled
+    close_angle_percent_max: 0.235
+    close_duration_s: 0.75
+    settle_duration_s: 0.35
+  movement_speeds:
+    travel_horizontal_step_m: 0.003
+    descend_step_m: 0.001
+    lift_step_m: 0.002
+  positions:
+    xy_offset_m: 0.01
+    approach_height_m: 0.25
+    grasp_height_offset_m: 0.015
+    lift_height_m: 0.20
+    safe_height_m: 0.30
+    transport_height_m: 0.25
+    release_height_m: 0.21
+    initial_position: [0.25, 0.0, 0.25]
+  timing:
+    max_posture_adjust_steps: 180
+    max_descend_steps: 600
+    release_duration_steps: 180
+    lift_check_interval_frames: 30
+
+gripper_profile:
+  max_opening_m: 0.055       # Maximum jaw separation when fully open
+  min_opening_m: 0.0         # Minimum gap at hard close
+  safety_clearance_m: 0.002  # Added on both sides of the object
+  percent_band: 0.0          # Total band around the target percent (overrides grasping.percent_band)
+
+grasp_detection:
+  check_interval_frames: 10
+  failure_confirmation_frames: 10
+  grip_distance_threshold: 0.03
+  contact_force_threshold: 0.1
+  enable_smart_grasp_detection: true
+  grasp_success_xy_threshold: 0.05
+  grasp_success_z_threshold: 0.08
+  grasp_movement_ratio_threshold: 0.7
+  grasp_stability_frames: 10
+  placement_velocity_threshold: 0.08
+  placement_stability_frames: 120
+  plate_placement_margin: 0.025
+  moving_jaw_path: "/World/so101_robot/moving_jaw_so101_v1_link"
+  fixed_jaw_path: "/World/so101_robot/gripper_link"
+  gripper_tip_offset: 0.08
+  gripper_tip_direction: "down"
+  enable_debug_logging: false
+  xy_distance_multiplier: 0.8
+  z_distance_multiplier: 1.5
+  enable_adaptive_z_threshold: true
+  xy_good_threshold_multiplier: 0.5
+  z_relaxed_multiplier: 2.0
+  enable_grasp_monitoring: true
+  monitoring_interval_frames: 5
+
+raycasting:
+  ray_length_m: 0.5
+  red:
+    origin_offset_local: [0.0, -0.08, 0.0]
+    direction_local: [0.0, -1.0, 0.0]
+  green:
+    origin_offset_local: [0.0, 0.0, -0.02]
+    direction_local: [-1.0, 0.0, 0.0]
+  purple:
+    origin_offset_local: [0.0, 0.0, 0.0]
+    direction_local: [0.0, 0.0, 1.0]

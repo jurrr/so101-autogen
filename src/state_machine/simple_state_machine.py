@@ -8,6 +8,7 @@ logic such as searching, confirmation, and recovery for a more streamlined proce
 import numpy as np
 import logging
 import random
+import copy
 from datetime import datetime
 from .grasp_states import SimpleGraspingState
 
@@ -27,7 +28,7 @@ class SimpleGraspingStateMachine:
     
     def __init__(self, world, robot, ik_controller, gripper_controller, 
                  pickup_assessor, scene_manager, target_configs, draw_interface=None,
-                 data_collection_manager=None, camera_controller=None):
+                 data_collection_manager=None, camera_controller=None, object_gripper_config=None):
         """
         Initializes the simplified state machine.
         
@@ -57,15 +58,21 @@ class SimpleGraspingStateMachine:
         self.data_collection_manager = data_collection_manager
         self.camera_controller = camera_controller
         self.episode_id_counter = 0
+        self.object_gripper_config = object_gripper_config or {}
+        self._object_config = self.object_gripper_config.get('object', {})
+        self._gripper_profile = self.object_gripper_config.get('gripper_profile', {})
         
         # Grasp detector (parameters read from config)
         from src.robot.grasp_detector import GraspDetector
-        grasp_config = self.scene_manager.config.get('grasp_detection', {})
+        grasp_config = self.object_gripper_config.get('grasp_detection') or self.scene_manager.config.get('grasp_detection', {})
         self.grasp_detector = GraspDetector(grasp_config)
         
         # Smart placement manager
         from src.robot.smart_placement_manager import SmartPlacementManager
-        placement_config = self.scene_manager.config.get('placement', {})
+        placement_config = copy.deepcopy(self.scene_manager.config.get('placement', {}))
+        placement_overrides = self.object_gripper_config.get('placement', {})
+        if placement_overrides:
+            self._deep_update_dict(placement_config, placement_overrides)
         # Get plate info from the plate config section
         plate_config = self.scene_manager.config.get('scene', {}).get('plate', {})
         placement_config.update({
@@ -97,9 +104,11 @@ class SimpleGraspingStateMachine:
         self.frame_count = 0 # Frame counter
         
         # Read state machine control parameters from config
-        sm_config = self.scene_manager.config.get('state_machine_control', {})
+        sm_config = self.object_gripper_config.get('state_machine_control') or self.scene_manager.config.get('state_machine_control', {})
         grasp_config = sm_config.get('grasping', {})
         move_config = sm_config.get('movement_speeds', {})
+        position_config = sm_config.get('positions', {})
+        timing_config = sm_config.get('timing', {})
 
         # Movement control
         self.is_moving = False
@@ -109,11 +118,12 @@ class SimpleGraspingStateMachine:
         self.move_duration_steps = 90
         
         # State configuration
-        self.max_posture_adjust_steps = 180   # Max steps for posture adjustment (3s @ 60FPS)
-        self.max_descend_steps = 600          # Max steps for descent (10s) - increased for slower descent
+        self.max_posture_adjust_steps = timing_config.get('max_posture_adjust_steps', 180)
+        self.max_descend_steps = timing_config.get('max_descend_steps', 600)
         self.grasp_duration_steps = int(grasp_config.get('close_duration_s', 1.5) * 60) # Grasp duration
         self.grasp_settle_duration_steps = int(grasp_config.get('settle_duration_s', 0.5) * 60) # Grasp settle time
-        self.release_duration_steps = 180     # Release duration (6s) - more time for the object to stabilize
+        self.release_duration_steps = timing_config.get('release_duration_steps', 180)
+        self.lift_check_interval = timing_config.get('lift_check_interval_frames', 30)
         
         # Load speed parameters from config
         self.travel_horizontal_speed = move_config.get('travel_horizontal_step_m', 0.0025)
@@ -121,18 +131,23 @@ class SimpleGraspingStateMachine:
         self.lift_step_size = move_config.get('lift_step_m', 0.002)
         
         # Gripper close angle random range
-        self.close_angle_min = grasp_config.get('close_angle_percent_min', 0.2)
-        self.close_angle_max = grasp_config.get('close_angle_percent_max', 0.2)
+        self.close_angle_min, self.close_angle_max = self._derive_gripper_close_percent(grasp_config)
+        logger.info(
+            "🤏 Auto gripper close percent -- min: %.3f max: %.3f",
+            self.close_angle_min,
+            self.close_angle_max,
+        )
 
         # Thresholds
         self.posture_threshold_deg = 5.0      # Posture adjustment angle threshold (degrees)
-        self.approach_height = 0.25           # Approach height
-        self.grasp_height_offset = 0.015      # Grasp height offset
-        self.lift_height = 0.20              # Lift height - lift to 20cm first to avoid unsolvable IK
-        self.safe_height = 0.30              # Safe position height
-        self.transport_height = 0.25         # Transport height - 25cm to avoid collisions
-        self.release_height = 0.21           # Release height
-        self.initial_position = np.array([0.25, 0.0, 0.25])  # Initial position
+        self.approach_height = position_config.get('approach_height_m', 0.25)
+        self.approach_xy_offset = position_config.get('xy_offset_m', 0.01)
+        self.grasp_height_offset = position_config.get('grasp_height_offset_m', 0.015)
+        self.lift_height = position_config.get('lift_height_m', 0.20)
+        self.safe_height = position_config.get('safe_height_m', 0.30)
+        self.transport_height = position_config.get('transport_height_m', 0.25)
+        self.release_height = position_config.get('release_height_m', 0.21)
+        self.initial_position = np.array(position_config.get('initial_position', [0.25, 0.0, 0.25]))
         
         # Gripper control
         self.grasp_start_pos = 0.0
@@ -160,6 +175,133 @@ class SimpleGraspingStateMachine:
             logger.info("🛡️ Plate movement monitoring enabled.")
             logger.info(f"   Position Threshold: {self.plate_monitoring_config.get('position_threshold', 0.03)}m")
             logger.info(f"   Velocity Threshold: {self.plate_monitoring_config.get('velocity_threshold', 0.1)}m/s")
+
+    @staticmethod
+    def _deep_update_dict(target, updates):
+        for key, value in updates.items():
+            if isinstance(value, dict):
+                node = target.setdefault(key, {})
+                if isinstance(node, dict):
+                    SimpleGraspingStateMachine._deep_update_dict(node, value)
+                else:
+                    target[key] = copy.deepcopy(value)
+            else:
+                target[key] = copy.deepcopy(value)
+
+    def _get_object_target_width(self):
+        explicit = self._object_config.get('target_width_m')
+        if explicit:
+            return explicit
+
+        shape_type = self._object_config.get('shape_type')
+        shape_dims = self._object_config.get('shape_dimensions') or {}
+        shape_based_width = self._compute_shape_based_width(shape_type, shape_dims)
+        if shape_based_width:
+            return shape_based_width
+
+        candidates = []
+        physics_cfg = self._object_config.get('physics', {})
+        radius = physics_cfg.get('radius')
+        if radius:
+            candidates.append(radius * 2.0)
+
+        cube_cfg = self._object_config.get('cube_conversion', {})
+        half_extent = cube_cfg.get('half_extent_m')
+        if half_extent:
+            candidates.append(half_extent * 2.0)
+
+        return max(candidates) if candidates else 0.04
+
+    def _compute_shape_based_width(self, shape_type, shape_dims):
+        if not shape_type:
+            return None
+
+        shape = shape_type.lower()
+        dims = shape_dims or {}
+
+        if shape in ('cube', 'square'):
+            edge = dims.get('edge_length_m')
+            if edge:
+                return edge
+            half_extent = dims.get('half_extent_m')
+            if half_extent:
+                return half_extent * 2.0
+
+        if shape in ('sphere', 'ball'):
+            diameter = dims.get('diameter_m')
+            if diameter:
+                return diameter
+            radius = dims.get('radius_m')
+            if radius:
+                return radius * 2.0
+
+        if shape in ('cylinder', 'capsule'):
+            diameter = dims.get('diameter_m')
+            if diameter:
+                return diameter
+            radius = dims.get('radius_m')
+            if radius:
+                return radius * 2.0
+
+        if shape in ('box', 'cuboid', 'rectangle', 'rect_prism'):
+            candidates = [
+                dims.get('x_length_m'),
+                dims.get('y_length_m'),
+                dims.get('short_side_m'),
+                dims.get('width_m'),
+            ]
+            candidates = [val for val in candidates if val]
+            if candidates:
+                return min(candidates)
+
+        return None
+
+    def _derive_gripper_close_percent(self, grasp_config):
+        auto_enabled = grasp_config.get('auto_percent_from_object', True)
+        profile = self._gripper_profile
+
+        if not auto_enabled or not profile:
+            min_pct = grasp_config.get('close_angle_percent_min', 0.2)
+            max_pct = grasp_config.get('close_angle_percent_max', 0.2)
+            return min_pct, max_pct
+
+        max_opening = profile.get('max_opening_m')
+        min_opening = profile.get('min_opening_m', 0.0)
+        if max_opening is None or max_opening <= min_opening:
+            logger.warning("⚠️ Invalid gripper_profile opening range. Falling back to static percents.")
+            return (
+                grasp_config.get('close_angle_percent_min', 0.2),
+                grasp_config.get('close_angle_percent_max', 0.2),
+            )
+
+        object_width = self._get_object_target_width()
+        clearance = profile.get('safety_clearance_m', 0.001)
+        target_gap = object_width - (2.0 * clearance)
+        target_gap = max(min_opening, min(max_opening, target_gap))
+
+        span = max_opening - min_opening
+        if span <= 1e-6:
+            logger.warning("⚠️ Gripper opening span too small. Falling back to static percents.")
+            return (
+                grasp_config.get('close_angle_percent_min', 0.2),
+                grasp_config.get('close_angle_percent_max', 0.2),
+            )
+
+        openness_ratio = (target_gap - min_opening) / span
+        openness_ratio = max(0.0, min(1.0, openness_ratio))
+        target_percent = 1.0 - openness_ratio
+
+        band = (
+            profile.get('percent_band')
+            if 'percent_band' in profile
+            else grasp_config.get('percent_band', 0.02)
+        )
+        band = max(0.0, band)
+        half_band = band / 2.0
+
+        min_pct = max(0.0, target_percent - half_band)
+        max_pct = min(1.0, target_percent + half_band)
+        return (min_pct, max_pct)
 
     def is_busy(self):
         """Checks if the state machine is currently executing a task."""
@@ -484,7 +626,7 @@ class SimpleGraspingStateMachine:
             
             # Add a small offset to avoid gripper edge collision with cube edge
             # Offset by 0.005m (0.5cm) in both X and Y to center better over the cube
-            xy_offset = 0.01  # 5mm offset to avoid edge collision
+            xy_offset = self.approach_xy_offset  # Configurable offset to avoid edge collisions
             approach_pos = np.array([
                 target_pos[0]  ,
                 target_pos[1] + xy_offset, 
@@ -524,9 +666,6 @@ class SimpleGraspingStateMachine:
         """Starts the slow lift."""
         print("⬆️ Starting slow lift, checking if object was successfully grasped...")
         # Not using smooth move; will be handled frame by frame
-        
-        # Set lift parameters
-        self.lift_check_interval = 30  # Check grasp status every 30 frames
         
     def _start_transport(self):
         """Starts transport to the plate's position."""

@@ -17,8 +17,8 @@ scene:
     # Orange Generation Configuration - Dual-Zone Avoidance
     generation:
       # Base generation range (expanded to increase success rate)
-      x_range: [0.1, 0.35]       # X: 10cm to 35cm
-      y_range: [-0.25, 0.25]     # Y: -25cm to 25cm
+      x_range: [0.18, 0.32]      # Tuned to stay inside IK workspace
+      y_range: [-0.18, 0.18]
       z_drop_height: 0.05        # Z: 5cm height
       max_attempts: 50           # Maximum attempts per orange
       
@@ -67,9 +67,9 @@ scene:
 placement:
   # Workspace Bounds
   workspace_bounds:
-    x: [0.05, 0.3]             # X-axis working range: 5cm to 30cm
-    y: [0.0, 0.2]              # Y-axis working range: 0cm to 20cm
-    z: [0.05, 0.05]            # Z-axis working range: 5cm
+    x: [0.18, 0.32]
+    y: [-0.18, 0.18]
+    z: [0.05, 0.05]
   
   # Robot Arm Exclusion Zone (area occupied by initial pose)
   robot_exclusion_zone:
@@ -86,8 +86,8 @@ placement:
   
   # Placement Limits (to avoid IK failures)
   placement_limits:
-    max_x_distance: 0.30                # Max X-direction distance 30cm
-    max_y_distance: 0.20                # Max Y-direction distance 20cm
+    max_x_distance: 0.28
+    max_y_distance: 0.18
   
   # Object Size Configuration (for collision detection)
   object_sizes:
@@ -169,32 +169,7 @@ debug:
   log_level: "INFO"
   safe_print: true  # Corresponds to the safe print function in the main script
 
-# Grasp Detection Configuration
-grasp_detection:
-  check_interval_frames: 10
-  failure_confirmation_frames: 10
-  grip_distance_threshold: 0.03
-  contact_force_threshold: 0.1
-  enable_smart_grasp_detection: true
-  grasp_success_xy_threshold: 0.05
-  grasp_success_z_threshold: 0.08
-  grasp_movement_ratio_threshold: 0.7
-  grasp_stability_frames: 10
-  placement_velocity_threshold: 0.08  # 8cm/s (more lenient)
-  placement_stability_frames: 120     # 4 seconds (longer duration)
-  plate_placement_margin: 0.025
-  moving_jaw_path: "/World/so101_robot/moving_jaw_so101_v1_link"
-  fixed_jaw_path: "/World/so101_robot/gripper_link"
-  gripper_tip_offset: 0.08
-  gripper_tip_direction: "down"
-  enable_debug_logging: false
-  xy_distance_multiplier: 0.8
-  z_distance_multiplier: 1.5
-  enable_adaptive_z_threshold: true
-  xy_good_threshold_multiplier: 0.5
-  z_relaxed_multiplier: 2.0
-  enable_grasp_monitoring: true
-  monitoring_interval_frames: 5
+# Grasp detection parameters relocated to config/object_gripper_params.yaml
 
 # New: Plate Movement Monitoring Configuration
 plate_monitoring:
@@ -206,24 +181,4 @@ plate_monitoring:
 ik_controller:
   solver: "LMA"
 
-# State Machine Control Parameters
-state_machine_control:
-  # Grasping Phase
-  grasping:
-    # Gripper close angle range (percentage, 0.0=fully closed, 1.0=fully open)
-    close_angle_percent_min: 0.18
-    close_angle_percent_max: 0.235
-    # Gripper close duration (seconds)
-    close_duration_s: 0.75
-    # Duration to wait after grasping for the object to settle, in seconds
-    settle_duration_s: 0.35
-  # Movement Speeds
-  movement_speeds:
-    # High-altitude fast movement speed (m/physics step), for APPROACH, TRANSPORT, RETURN_HOME
-    travel_horizontal_step_m: 0.003
-
-    # Fine Operation Speeds
-    # Descend speed (m/physics step), slow speed is recommended for precision
-    descend_step_m: 0.001
-    # Lift speed (m/physics step), can be slightly faster
-    lift_step_m: 0.002
+# State machine control parameters relocated to config/object_gripper_params.yaml

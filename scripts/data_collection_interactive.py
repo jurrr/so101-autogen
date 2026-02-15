@@ -146,8 +146,13 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
     print("")
     
     # Load configuration file
-    from src.utils.config_utils import load_scene_config
+    from src.utils.config_utils import load_scene_config, load_object_gripper_config
     scene_config = load_scene_config(PROJECT_ROOT)
+    object_gripper_config = {}
+    if scene_config:
+        object_gripper_config = scene_config.get('object_gripper', {}) or {}
+    if not object_gripper_config:
+        object_gripper_config = load_object_gripper_config(PROJECT_ROOT) or {}
     
     # Use the new logging utility module
     from src.utils.logger import setup_logging
@@ -185,7 +190,7 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         
         # 6. Create World and scene
         print("\n🌍 Step 4: Creating World and scene")
-        world_setup = WorldSetup(config)
+        world_setup = WorldSetup(config, object_gripper_config=object_gripper_config)
         world = world_setup.create_world()
         world_setup.setup_environment()
         world_setup.add_follow_target_task()
@@ -253,7 +258,11 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         GripperController = get_gripper_controller()
         open_pos = robot.gripper._joint_opened_position
         closed_pos = robot.gripper._joint_closed_position
-        gripper_controller = GripperController(open_pos, closed_pos)
+        gripper_controller = GripperController(
+            open_pos,
+            closed_pos,
+            controller_config=object_gripper_config.get('gripper_controller', {})
+        )
         
         # Keyboard Handler
         KeyboardHandler = get_keyboard_handler()
@@ -283,7 +292,7 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
         DebugVisualizer = get_debug_visualizer()
         
         bbox_visualizer = BoundingBoxVisualizer(draw_interface)
-        ray_visualizer = RayVisualizer(draw_interface)
+        ray_visualizer = RayVisualizer(draw_interface, config=object_gripper_config.get('raycasting', {}))
         pickup_assessor = PickupAssessor(world, bbox_visualizer)
         debug_visualizer = DebugVisualizer(draw_interface, bbox_visualizer, pickup_assessor, ray_visualizer)
         
@@ -377,7 +386,8 @@ def main(enable_data_collection=False, auto_mode=False, no_search_mode=False,
             target_configs=target_configs,
             draw_interface=draw_interface,
             data_collection_manager=data_collection_manager,
-            camera_controller=camera_controller
+            camera_controller=camera_controller,
+            object_gripper_config=object_gripper_config
         )
         
         # Connect the state machine to the keyboard handler

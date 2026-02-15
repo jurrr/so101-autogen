@@ -14,7 +14,22 @@ Or run within Isaac Sim Python environment:
 
 import os
 import shutil
+import yaml
 from pxr import Usd, UsdGeom, Gf, Vt
+
+
+def load_cube_half_extent(project_root):
+    """Loads the cube half-extent from the consolidated object/gripper config."""
+    config_path = os.path.join(project_root, "config", "object_gripper_params.yaml")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as handle:
+            config = yaml.safe_load(handle)
+        return config.get('object', {}).get('cube_conversion', {}).get('half_extent_m', 0.02)
+    except FileNotFoundError:
+        print(f"⚠️ Object/gripper config not found at {config_path}, using default cube size.")
+    except Exception as exc:
+        print(f"⚠️ Failed to read {config_path}: {exc}. Using default cube size.")
+    return 0.02
 
 def backup_original(usd_path):
     """Create a backup of the original USD file."""
@@ -300,11 +315,10 @@ def main():
     
     print(f"\n📁 Input file: {orange_usd_path}")
     
-    # Convert the orange to a cube
-    # Original orange: ~5cm diameter
-    # Target: 80% scale = 4cm cube
-    # cube_size is half-extent, so: 4cm / 2 = 2cm = 0.02m
-    success = convert_orange_to_cube(orange_usd_path, cube_size=0.02)
+    cube_size = load_cube_half_extent(script_dir)
+    print(f"   Cube half-extent loaded from config: {cube_size:.4f} m")
+
+    success = convert_orange_to_cube(orange_usd_path, cube_size=cube_size)
     
     if success:
         print("\n" + "=" * 60)

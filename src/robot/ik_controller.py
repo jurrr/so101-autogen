@@ -469,7 +469,7 @@ class IKController:
                     
                     # Print detailed failure information, including current arm position
                     try:
-                        current_ee_pos, current_ee_rot = self.compute_forward_kinematics(current_joint_positions, "wrist_link")
+                        current_ee_pos, current_ee_rot = self.compute_forward_kinematics(current_joint_positions[:5], "wrist_link")
                         print("❌ IK solution not found. Halting current task.")
                         print(f"🔍 IK Failure Details:")
                         print(f"   Target Position: [{self.ik_target_position[0]:.4f}, {self.ik_target_position[1]:.4f}, {self.ik_target_position[2]:.4f}]")

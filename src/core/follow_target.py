@@ -35,6 +35,7 @@ class FollowTarget(tasks.FollowTarget):
         target_position: Optional[np.ndarray] = None,
         target_orientation: Optional[np.ndarray] = None,
         offset: Optional[np.ndarray] = None,
+        object_gripper_config: Optional[dict] = None,
     ) -> None:
         tasks.FollowTarget.__init__(
             self,
@@ -45,6 +46,7 @@ class FollowTarget(tasks.FollowTarget):
             target_orientation=target_orientation,
             offset=offset,
         )
+        self.object_gripper_config = object_gripper_config or {}
         return
 
     def set_robot(self) -> SingleManipulator:
@@ -58,11 +60,12 @@ class FollowTarget(tasks.FollowTarget):
         add_reference_to_stage(usd_path=asset_path, prim_path="/World/so101_robot")
 
         # Instantiate the custom single-jaw gripper.
+        gripper_cfg = self.object_gripper_config.get('gripper_joint', {})
         gripper = SingleJawGripper(
             end_effector_prim_path="/World/so101_robot/wrist_link",
-            joint_prim_name="gripper",  # Use the joint name from the URDF.
-            joint_opened_position=1.74533,
-            joint_closed_position=0.0,
+            joint_prim_name=gripper_cfg.get('joint_name', "gripper"),
+            joint_opened_position=gripper_cfg.get('open_position_rad', 1.74533),
+            joint_closed_position=gripper_cfg.get('closed_position_rad', 0.0),
             action_delta=None,
         )
 
