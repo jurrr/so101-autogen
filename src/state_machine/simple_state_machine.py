@@ -289,7 +289,11 @@ class SimpleGraspingStateMachine:
 
         openness_ratio = (target_gap - min_opening) / span
         openness_ratio = max(0.0, min(1.0, openness_ratio))
-        target_percent = 1.0 - openness_ratio
+        target_percent = openness_ratio
+
+        squeeze_bias = grasp_config.get('squeeze_bias_percent', 0.0)
+        if squeeze_bias:
+            target_percent = max(0.0, target_percent - squeeze_bias)
 
         band = (
             profile.get('percent_band')

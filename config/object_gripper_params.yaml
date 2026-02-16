@@ -13,6 +13,7 @@ object:
   shape_type: cube
   shape_dimensions:
     edge_length_m: 0.04
+  target_width_m: 0.04       # Matches cube edge; squeeze handled via squeeze_bias_percent
   generation:
     x_range: [0.1, 0.35]
     y_range: [-0.25, 0.25]
@@ -81,9 +82,10 @@ manual_control:
 state_machine_control:
   grasping:
     auto_percent_from_object: true
-    percent_band: 0.0
-    close_angle_percent_min: 0.18  # Fallback if auto disabled
-    close_angle_percent_max: 0.235
+    percent_band: 0.04
+    squeeze_bias_percent: 0.62   # Shifts target openness down so the jaws add pressure
+    close_angle_percent_min: 0.08  # Fallback if auto disabled
+    close_angle_percent_max: 0.14
     close_duration_s: 0.75
     settle_duration_s: 0.35
   movement_speeds:
@@ -91,7 +93,7 @@ state_machine_control:
     descend_step_m: 0.001
     lift_step_m: 0.002
   positions:
-    xy_offset_m: 0.01
+    xy_offset_m: 0.0
     approach_height_m: 0.25
     grasp_height_offset_m: 0.015
     lift_height_m: 0.20
@@ -108,8 +110,8 @@ state_machine_control:
 gripper_profile:
   max_opening_m: 0.055       # Maximum jaw separation when fully open
   min_opening_m: 0.0         # Minimum gap at hard close
-  safety_clearance_m: 0.002  # Added on both sides of the object
-  percent_band: 0.0          # Total band around the target percent (overrides grasping.percent_band)
+  safety_clearance_m: 0.001  # Leave ~1 mm air gap before applying squeeze bias
+  percent_band: 0.04         # Allow ~±2% openness randomness around the target
 
 grasp_detection:
   check_interval_frames: 10

@@ -50,6 +50,7 @@ All grasp-specific tuning knobs now live in [`config/object_gripper_params.yaml`
 | Subsection | Highlights |
 | --- | --- |
 | `grasping.*` | Set `auto_percent_from_object: true` (default) to derive the close percent from object size. `percent_band` defines the spread around the computed target. |
+| `grasping.squeeze_bias_percent` | Optional scalar (0-1) subtracted from the auto-computed openness percent to deliberately over-close for higher gripping force. |
 | `movement_speeds.*` | Cartesian step sizes (meters per physics step). Increase carefully—too fast breaks IK. |
 | `positions.*` | All height/offset targets (approach, lift, transport, release) and the `initial_position`. Raise these when using taller props. |
 | `timing.*` | Frame budgets for posture adjust, descent, lift checks, and release duration. Also feeds the lift success polling interval. |

@@ -57,11 +57,14 @@ class ManualTeleopController:
         self.fast_multiplier = float(step_cfg.get("fast_multiplier", 4.0))
         self.speed_mode = "normal"
         self.status_interval = float(manual_config.get("status_interval_s", 2.0))
+        self.workspace_margin = float(manual_config.get("workspace_margin_m", 0.015))
         self.workspace_limits = self._normalize_workspace(workspace_cfg)
+        self._effective_limits = self._shrink_workspace(self.workspace_limits, self.workspace_margin)
 
         self.exit_requested = False
         self._last_status = time.time()
         self._initial_target = self.ik_controller.get_target_position()
+        self._limit_notified = {"x": False, "y": False, "z": False}
 
         self._keyboard = None
         self._keyboard_sub = None
@@ -88,6 +91,22 @@ class ManualTeleopController:
             else:
                 limits[axis] = default_limits[axis]
         return limits
+
+    def _shrink_workspace(self, limits, margin):
+        if margin <= 0.0:
+            return limits
+
+        effective = {}
+        for axis, (low, high) in limits.items():
+            low_val = float(low)
+            high_val = float(high)
+            span = high_val - low_val
+            if span <= 0:
+                effective[axis] = (low_val, high_val)
+                continue
+            shrink = min(margin, max(0.0, span / 2.0 - 1e-4))
+            effective[axis] = (low_val + shrink, high_val - shrink)
+        return effective
 
     def _subscribe_keyboard(self):
         try:
@@ -133,12 +152,36 @@ class ManualTeleopController:
             return
 
         current = self.ik_controller.get_target_position()
-        updated = current + delta
-        updated[0] = np.clip(updated[0], *self.workspace_limits["x"])
-        updated[1] = np.clip(updated[1], *self.workspace_limits["y"])
-        updated[2] = np.clip(updated[2], *self.workspace_limits["z"])
+        desired = current + delta
+        updated = desired.copy()
+        clamped_axes = []
+        for idx, axis in enumerate(("x", "y", "z")):
+            limits = self._effective_limits.get(axis, self.workspace_limits[axis])
+            before = updated[idx]
+            updated[idx] = np.clip(before, *limits)
+            if not np.isclose(updated[idx], before):
+                clamped_axes.append(axis)
+
+        if np.allclose(updated, current):
+            self._notify_axis_limits(clamped_axes)
+            return
+
         self.ik_controller.set_target_position(updated)
         self._last_status = 0  # force immediate status print
+        self._notify_axis_limits(clamped_axes)
+
+    def _notify_axis_limits(self, clamped_axes):
+        if not clamped_axes and not any(self._limit_notified.values()):
+            return
+
+        for axis in ("x", "y", "z"):
+            if axis in clamped_axes:
+                if not self._limit_notified[axis]:
+                    low, high = self._effective_limits[axis]
+                    print(f"⚠️ {axis.upper()} axis limit reached ({low:.3f} m to {high:.3f} m).")
+                    self._limit_notified[axis] = True
+            else:
+                self._limit_notified[axis] = False
 
     def _nudge_gripper(self, direction: float):
         delta = direction * self.gripper_step
@@ -173,10 +216,10 @@ class ManualTeleopController:
 
     def _print_control_help(self):
         print("\n🎛️ Manual Teleoperation Controls:")
-        print("   W / S  : Move along +X / -X (toward / away from table)")
-        print("   A / D  : Move along +Y / -Y (left / right)")
-        print("   E / F  : Move along +Z / -Z (up / down)")
-        print("   O / P  : Open / close gripper")
+        print("   Arrow Up / Arrow Down : Move along +X / -X (toward / away from table)")
+        print("   Arrow Left / Arrow Right : Move along +Y / -Y (left / right)")
+        print("   Page Up / Page Down : Move along +Z / -Z (up / down)")
+        print("   - (open) / + (close) : Control gripper")
         print("   SPACE  : Snap arm back to the initial pose")
         print("   R      : Reset scene objects and reopen gripper")
         print("   TAB    : Cycle camera views")
@@ -192,21 +235,21 @@ class ManualTeleopController:
 
         key_name = event.input.name.upper()
 
-        if key_name == "W":
+        if key_name in {"UP", "ARROW_UP"}:
             self._apply_motion(self._xy_step(), 0.0, 0.0)
-        elif key_name == "S":
+        elif key_name in {"DOWN", "ARROW_DOWN"}:
             self._apply_motion(-self._xy_step(), 0.0, 0.0)
-        elif key_name == "A":
+        elif key_name in {"LEFT", "ARROW_LEFT"}:
             self._apply_motion(0.0, self._xy_step(), 0.0)
-        elif key_name == "D":
+        elif key_name in {"RIGHT", "ARROW_RIGHT"}:
             self._apply_motion(0.0, -self._xy_step(), 0.0)
-        elif key_name == "E":
+        elif key_name in {"PAGEUP", "PAGE_UP"}:
             self._apply_motion(0.0, 0.0, self._z_step())
-        elif key_name == "F":
+        elif key_name in {"PAGEDOWN", "PAGE_DOWN"}:
             self._apply_motion(0.0, 0.0, -self._z_step())
-        elif key_name == "O":
+        elif key_name in {"MINUS", "SUBTRACT", "KP_SUBTRACT", "NUMPAD_SUBTRACT"}:
             self._nudge_gripper(+1.0)
-        elif key_name == "P":
+        elif key_name in {"EQUALS", "PLUS", "ADD", "KP_ADD", "NUMPAD_ADD"}:
             self._nudge_gripper(-1.0)
         elif key_name == "SPACE":
             self._move_to_initial_target()
