@@ -16,14 +16,25 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from src.utils.path_utils import (
+    build_dataset_path,
+    ensure_datasets_dir_exists,
+    resolve_dataset_path,
+)
+
+ensure_datasets_dir_exists()
+DEFAULT_AUTO_OUTPUT = build_dataset_path("so101_pickup_auto.hdf5")
+DEFAULT_AUTO_ARG_OUTPUT = build_dataset_path("automatic_collection.hdf5")
+
 # Logging setup is now handled in src.utils.logger
 # Debug print functions are now handled in src.utils.debug_utils
 # Config loading functions are now handled in src.utils.config_utils
 
 def main(enable_data_collection=False, auto_mode=False, no_search_mode=False, 
-         data_output="./datasets/so101_pickup_auto.hdf5", save_camera_data=False,
+        data_output=DEFAULT_AUTO_OUTPUT, save_camera_data=False,
          total_success_episodes=10, headless=False):
     """Main function - unified entry point."""
+    data_output = resolve_dataset_path(data_output)
     print("🚀 SO-101 Automated Data Collection System")
     print("=" * 60)
     print("📋 Launch Parameters:")
@@ -485,7 +496,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Fully automated data collection script.")
     parser.add_argument("--enable-data-collection", action="store_true", default=True, help="Enable data collection (enabled by default).")
-    parser.add_argument("--data-output", type=str, default="./datasets/automatic_collection.hdf5", help="Output path for the data file.")
+    parser.add_argument("--data-output", type=str, default=DEFAULT_AUTO_ARG_OUTPUT, help="Output path for the data file.")
     parser.add_argument("--save-camera-data", action="store_true", help="Enable saving of camera data.")
     parser.add_argument("--total-success-episodes", type=int, default=10, help="Target number of successful grasps.")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode.")

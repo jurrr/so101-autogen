@@ -12,6 +12,14 @@ import pandas as pd
 # from lerobot.datasets.lerobot_dataset import LeRobotDataset # MOVED
 import pprint
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src.utils.path_utils import ensure_datasets_dir_exists
+
+DEFAULT_HDF5_ROOT = ensure_datasets_dir_exists()
+
 # Feature definition for the single-arm so101_follower configuration
 SINGLE_ARM_FEATURES = {
     "action": {
@@ -279,7 +287,7 @@ def main():
     parser.add_argument('--repo-id',type=str,default='matrix/so101_sync_orange_pick',help='The HuggingFace repository ID for the dataset.')
     parser.add_argument('--robot-type',type=str,choices=['so101_follower', 'bi_so101_follower'],default='so101_follower',help='The type of robot configuration.')
     parser.add_argument('--fps',type=int,default=30,help='The frames per second for the dataset videos.')
-    parser.add_argument('--hdf5-root',type=str,default='./datasets',help='The root directory containing the source HDF5 files.')
+    parser.add_argument('--hdf5-root',type=str,default=DEFAULT_HDF5_ROOT,help='The root directory containing the source HDF5 files.')
     parser.add_argument('--hdf5-files',type=str,nargs='+',default=['dataset.hdf5'],help='A list of HDF5 files to process (relative to hdf5-root).')
     parser.add_argument('--task',type=str,default='Grab orange and place into plate',help='A description of the task being performed in the dataset.')
     parser.add_argument('--push-to-hub',action='store_true',help='Push the converted dataset to the HuggingFace Hub upon completion.')
@@ -304,6 +312,8 @@ def main():
     )
 
     args = parser.parse_args()
+    args.hdf5_root = os.path.abspath(os.path.expanduser(args.hdf5_root))
+    os.makedirs(args.hdf5_root, exist_ok=True)
     
     # --- Script paths and file lists ---
     # Construct an absolute path to the worker script, assuming execution from the project root

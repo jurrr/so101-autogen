@@ -17,6 +17,15 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from src.utils.path_utils import (
+    build_dataset_path,
+    ensure_datasets_dir_exists,
+    resolve_dataset_path,
+)
+
+ensure_datasets_dir_exists()
+DEFAULT_INTERACTIVE_OUTPUT = build_dataset_path("so101_pickup_data.hdf5")
+
 # Logging setup has been moved to src.utils.logger
 # Debug print functions have been moved to src.utils.debug_utils
 # Configuration loading functions have been moved to src.utils.config_utils
@@ -122,9 +131,10 @@ def get_camera_images_for_display(camera_controller):
         return None, None
 
 def main(enable_data_collection=False, auto_mode=False, no_search_mode=False, 
-         data_output="./datasets/so101_pickup_data.hdf5", save_camera_data=False, 
+        data_output=DEFAULT_INTERACTIVE_OUTPUT, save_camera_data=False, 
          enable_opencv_display=False):
     """Main function - the unified entry point."""
+    data_output = resolve_dataset_path(data_output)
     print("🚀 SO-101 Interactive Data Collection System")
     print("=" * 60)
     print("📋 Startup Parameters:")
@@ -563,7 +573,7 @@ if __name__ == "__main__":
     parser.add_argument("--enable-data-collection", action="store_true", help="Enable data collection.")
     parser.add_argument("--auto", action="store_true", help="Enable automatic mode.")
     parser.add_argument("--no-search-mode", action="store_true", help="Disable search mode.")
-    parser.add_argument("--data-output", type=str, default="./datasets/so101_pickup_data.hdf5", help="Path for the data output file.")
+    parser.add_argument("--data-output", type=str, default=DEFAULT_INTERACTIVE_OUTPUT, help="Path for the data output file.")
     parser.add_argument("--save-camera-data", action="store_true", help="Enable saving of camera data.")
     parser.add_argument("--enable-opencv-display", action="store_true", help="Enable real-time camera display with OpenCV.")
     

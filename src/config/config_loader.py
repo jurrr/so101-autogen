@@ -11,6 +11,8 @@ import argparse
 from typing import Dict, Any
 import logging
 
+from src.utils.path_utils import build_dataset_path, resolve_dataset_path
+
 class ConfigLoader:
     """Configuration loader that provides an interface compatible with the main script's args_cli."""
     
@@ -91,7 +93,11 @@ class ConfigLoader:
         
         self.args_cli.save_camera_data = cameras_config.get('save_data', False)
         self.args_cli.enable_data_collection = data_config.get('enabled', False)
-        self.args_cli.data_output = data_config.get('output_path', './datasets/so101_pickup_data.hdf5')
+        output_override = data_config.get('output_path')
+        if output_override:
+            self.args_cli.data_output = resolve_dataset_path(output_override)
+        else:
+            self.args_cli.data_output = build_dataset_path('so101_pickup_data.hdf5')
         self.args_cli.no_search_mode = not task_config.get('search_mode', True)  # Note the logical inversion
         self.args_cli.show_debug_viz = debug_config.get('show_viz', False)
         

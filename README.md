@@ -142,6 +142,22 @@ python scripts/parallel_converter.py \
 ```
 _Note: Adjust `--num-workers` based on your CPU cores and provide the correct path to your conda environment's python executable._
 
+If you followed the five-episode quick experiment described in the docs, you can convert and push that dataset in one go with:
+
+```bash
+python scripts/parallel_converter.py \
+    --repo-id <user>/<dataset_name> \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files <hdf5_dataset_name>.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+```
+
+Make sure you are logged in with `huggingface-cli login` beforehand so the push succeeds.
+
 Here are examples of the camera data generated:
 | Front Camera | Wrist Camera |
 |---|---|

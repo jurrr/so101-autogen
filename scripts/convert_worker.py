@@ -215,7 +215,8 @@ def process_single_arm_data(dataset: 'LeRobotDataset', task: str, demo_group: h5
             "observation.images.wrist": wrist_images[frame_index],
         }
         # Let the conductor handle episode_index and global index during post-processing
-        dataset.add_frame(frame=frame, task=task)
+        frame["task"] = task
+        dataset.add_frame(frame=frame)
 
     return True
 
@@ -250,7 +251,8 @@ def process_bi_arm_data(dataset: 'LeRobotDataset', task: str, demo_group: h5py.G
             "observation.images.right": right_images[frame_index],
         }
         # Let the conductor handle episode_index and global index during post-processing
-        dataset.add_frame(frame=frame, task=task)
+        frame["task"] = task
+        dataset.add_frame(frame=frame)
 
     return True
 
@@ -338,18 +340,17 @@ def main():
 
             if valid:
                 dataset.save_episode()
+                dataset.finalize()
 
-                # The episode is now saved within the temporary worker directory.
-                # We need to extract the metadata that the orchestrator will need for the final merge.
-                
-                # Reload the metadata that was just written to the temp dir
+                # Ensure metadata files are flushed and reload them from disk
                 temp_meta = dataset.meta
+                temp_meta.load_metadata()
                 last_episode_index = temp_meta.total_episodes - 1
-                
-                # Extract the necessary info for the orchestrator
-                episode_stats = temp_meta.episodes_stats[last_episode_index]
+
+                # Extract the necessary info for the orchestrator using the refreshed metadata
+                episode_stats = temp_meta.stats
                 episode_info = temp_meta.episodes[last_episode_index]
-                
+
                 output_payload = {
                     "root": str(dataset.root),
                     "stats": episode_stats,

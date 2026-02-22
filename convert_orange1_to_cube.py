@@ -13,9 +13,16 @@ Or run within Isaac Sim Python environment:
 """
 
 import os
+import sys
 import shutil
 import yaml
 from pxr import Usd, UsdGeom, Gf, Vt
+
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src.utils.path_utils import build_dataset_path
 
 
 def load_cube_half_extent(project_root):
@@ -305,7 +312,7 @@ def main():
     print("=" * 60)
     
     # Path to the Orange001 USD file
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = PROJECT_ROOT
     orange_usd_path = os.path.join(script_dir, "assets/objects/Orange001/Orange001.usd")
     
     # Check if the file exists
@@ -328,7 +335,8 @@ def main():
         print("1. Run your data collection script:")
         print("   python scripts/data_collection_automatic.py \\")
         print("     --total-success-episodes 5 \\")
-        print("     --data-output ./datasets/custom_cube_v1_5.hdf5")
+        example_dataset_path = build_dataset_path("custom_cube_v1_5.hdf5")
+        print(f"     --data-output {example_dataset_path}")
         print("\n2. The Orange001 object will now appear as a cube in the simulation")
         print("\n3. To restore the original sphere, copy the backup file:")
         print("   cp assets/objects/Orange001/Orange001_sphere_backup.usd \\")
