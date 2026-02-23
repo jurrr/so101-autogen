@@ -142,6 +142,52 @@ python scripts/parallel_converter.py \
 ```
 *注意: 请根据您的 CPU 核心数调整 `--num-workers`，并提供正确的 conda 环境 python 可执行文件路径。*
 
+对于本仓库维护的两个前视/手腕相机数据集，请使用下面的完整参数重新上传到 Hugging Face：
+
+```bash
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_5.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_50.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+```
+
+自 LeRobot 0.4 起，数据集必须升级到 v3.0 代码库格式。`parallel_converter.py` 仍产出 v2.1，因此每次上传后都需要运行官方脚本进行就地升级：
+
+```bash
+pip install "lerobot>=0.4.1"
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id <user>/<dataset_name> \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+# 本项目示例
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+```
+
 以下是生成的摄像头数据示例：
 | 前置摄像头 | 手腕摄像头 |
 |---|---|

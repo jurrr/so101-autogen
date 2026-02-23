@@ -36,17 +36,17 @@ python scripts/data_collection_automatic.py --total-success-episodes 100 --data-
 python scripts/hdf5_visualizer.py --hdf5_file ./datasets/custom_orange_v1_100.hdf5
 ```
 
-## 4. convert to lerobot format
+## 4. convert to lerobot format (v2.1 ➜ v3.0)
 
-**✅ Working Solution: Use LeRobot 0.3.3 (v2.1 format)**
+**Step 4a – Run the parallel converter (still emits v2.1)**
 
-The LeRobot 0.3.3 conversion works correctly and creates a dataset with proper frame-level data (13,315 frames across 29 episodes).
+LeRobot 0.3.3 remains the most stable release for `parallel_converter.py`, so keep using it for the initial HDF5 → LeRobot export (13,315 frames across 29 episodes in this example).
 
 ```
 pip install lerobot==0.3.3
 ```
 
-Login to huggingface to push to hub
+Login to Hugging Face before pushing
 ```
 huggingface-cli login
 
@@ -67,19 +67,56 @@ python scripts/parallel_converter.py \
 
 **Result:** Dataset `jurrr/pickup_custom_orange_100e_v033` with 13,315 individual frames ✅
 
-**Optional: Convert to v3.0 format for latest LeRobot compatibility**
-
-If you need v3.0 format for newer LeRobot features:
+For the wrist-camera datasets that ship with this repo, refresh the uploads with the exact commands requested by the Hub team:
 
 ```
-pip install lerobot==0.4.1
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_5.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
 
-# Convert v2.1 dataset to v3.0 format 
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_50.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+```
 
-python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id jurrr/pickup_custom_orange_100e_v033 
+**Step 4b – Upgrade every dataset to the mandatory v3.0 format**
 
-# This creates a v3.0 dataset (may need manual upload to Hub)
+Starting with LeRobot 0.4, datasets must expose the v3.0 layout. Run the official upgrader immediately after each `parallel_converter.py` push so that the Hub tag is in sync.
 
+```
+pip install "lerobot>=0.4.1"
+
+# Generic command (set --root to the parent directory where datasets live)
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id <user>/<dataset_name> \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+# Project datasets
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+```
+
+The script rewrites the dataset in-place (it will create `_old` and `_v30` folders during execution) and publishes the upgraded snapshot plus the `codebase_version=v3.0` tag automatically.
 
 ## 5. train smolvla model based on examples
 

@@ -156,7 +156,53 @@ python scripts/parallel_converter.py \
     --push-to-hub
 ```
 
-Make sure you are logged in with `huggingface-cli login` beforehand so the push succeeds.
+For the two curated front/wrist camera datasets in this repo, rerun the upload with the exact parameters below to refresh the Hugging Face copies:
+
+```bash
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_5.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+
+python scripts/parallel_converter.py \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_50.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2 \
+    --push-to-hub
+```
+
+LeRobot 0.4 and newer no longer accept v2.1 datasets. After each `parallel_converter.py` run (which still emits v2.1), upgrade the repo in-place to the v3.0 layout using the official script:
+
+```bash
+pip install "lerobot>=0.4.1"
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id <user>/<dataset_name> \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+# Project-specific repos
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-test5episodes-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id jurrr/custom-cube-frontwristcam-50-v0 \
+    --root /mnt/datasets \
+    --push-to-hub true
+```
+
+Make sure you are logged in with `huggingface-cli login` beforehand so both the conversion and the v3.0 upgrade can push to the Hub successfully.
 
 Here are examples of the camera data generated:
 | Front Camera | Wrist Camera |
