@@ -204,6 +204,60 @@ format. It manages worker processes that handle the actual data conversion,
 ensuring the main process remains clean and avoids multiprocessing-related issues.
 """
 
+
+def extract_camera_name_from_video_path(video_path, worker_root):
+    """Extract camera key from a worker video path.
+
+    Supports both legacy and newer layouts, for example:
+    - videos/chunk-000/observation.images.front/episode_000000.mp4
+    - videos/observation.images.front/chunk-000/file_000.mp4
+
+    Falls back to the immediate parent directory name if the path cannot be parsed.
+    """
+    rel_path = os.path.relpath(video_path, worker_root)
+    parts = rel_path.split(os.sep)
+
+    if len(parts) >= 4 and parts[0] == "videos":
+        # Legacy v2.1: videos/chunk-000/<camera>/episode_*.mp4
+        if parts[1].startswith("chunk-") and not parts[2].startswith("chunk-"):
+            return parts[2]
+
+        # Newer layout: videos/<camera>/chunk-000/file_*.mp4
+        if not parts[1].startswith("chunk-") and parts[2].startswith("chunk-"):
+            return parts[1]
+
+    # Fallback (best effort)
+    return os.path.basename(os.path.dirname(video_path))
+
+
+def select_data_parquet_from_worker_file(file_path, worker_root):
+    """Return True when file_path is an episode parquet under worker data directory."""
+    rel_path = os.path.relpath(file_path, worker_root)
+    parts = rel_path.split(os.sep)
+
+    if len(parts) < 3:
+        return False
+
+    # Expected worker path patterns:
+    # - data/chunk-000/episode_000000.parquet (legacy v2.1 episode shards)
+    # - data/chunk-000/file_000.parquet      (newer file-based shards)
+    # - data/chunk-000/file-000.parquet      (some lerobot versions)
+    if parts[0] != "data":
+        return False
+    if not parts[1].startswith("chunk-"):
+        return False
+    if not parts[2].endswith(".parquet"):
+        return False
+    if not (
+        parts[2].startswith("episode_")
+        or parts[2].startswith("episode-")
+        or parts[2].startswith("file_")
+        or parts[2].startswith("file-")
+    ):
+        return False
+
+    return True
+
 def scan_for_tasks(hdf5_files, worker_script_path, python_executable):
     """Uses the worker script in --scan mode to discover all demos."""
     tasks = []
@@ -508,11 +562,13 @@ def main():
 
             for dirpath, _, filenames in os.walk(worker_root):
                 for filename in filenames:
-                    if filename.endswith('.parquet'):
-                        found_parquet = os.path.join(dirpath, filename)
+                    file_path = os.path.join(dirpath, filename)
+                    if filename.endswith('.parquet') and select_data_parquet_from_worker_file(file_path, worker_root):
+                        found_parquet = file_path
                     elif filename.endswith('.mp4'):
-                        camera_name = os.path.basename(dirpath)
-                        found_videos.append({"path": os.path.join(dirpath, filename), "camera": camera_name})
+                        video_path = file_path
+                        camera_name = extract_camera_name_from_video_path(video_path, worker_root)
+                        found_videos.append({"path": video_path, "camera": camera_name})
             
             # 3. Move and correct the data file (.parquet)
             if found_parquet:

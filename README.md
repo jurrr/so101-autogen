@@ -204,6 +204,78 @@ python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
 
 Make sure you are logged in with `huggingface-cli login` beforehand so both the conversion and the v3.0 upgrade can push to the Hub successfully.
 
+### Recreate and publish the 50-episode dataset as v3.0 (`cmotions/custom-cube-frontwristcam-50-t3`)
+
+If the old 50-episode file is no longer available, rerun simulation data collection and then republish with the updated naming (`-50-t3`) and v3.0 format.
+
+```bash
+# 0) Recreate /mnt dataset directories after VM restart (one-time per reboot if needed)
+sudo mkdir -p /mnt/datasets
+sudo chown -R "$USER":"$USER" /mnt/datasets
+mkdir -p /mnt/datasets/hf_home/lerobot /mnt/datasets/cmotions
+
+# 1) Activate your Isaac environment
+conda activate isaac
+
+# 2) Recollect 50 successful episodes (requires Isaac Sim running)
+python scripts/data_collection_automatic.py \
+    --total-success-episodes 50 \
+    --data-output /mnt/datasets/custom_cube_frontwristcam_50.hdf5
+
+# 3) Quick validity check of recorded demos
+python scripts/convert_worker.py \
+    --hdf5-file /mnt/datasets/custom_cube_frontwristcam_50.hdf5 \
+    --scan
+
+# 4) Build local LeRobot v2.1 dataset (no push yet)
+export HF_LEROBOT_HOME=/mnt/datasets/hf_home/lerobot
+python scripts/parallel_converter.py \
+    --repo-id cmotions/custom-cube-frontwristcam-50-t3 \
+    --robot-type so101_follower \
+    --fps 30 \
+    --hdf5-root /mnt/datasets \
+    --hdf5-files custom_cube_frontwristcam_50.hdf5 \
+    --task "grab object and place into plate" \
+    --num-workers 2
+
+# 5) Copy dataset into /mnt/datasets/<user>/<repo> for v2.1 -> v3.0 conversion
+mkdir -p /mnt/datasets/cmotions
+rsync -a --delete \
+    /mnt/datasets/hf_home/lerobot/cmotions/custom-cube-frontwristcam-50-t3 \
+    /mnt/datasets/cmotions/
+
+# 6) Convert local copy to v3.0
+python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
+    --repo-id cmotions/custom-cube-frontwristcam-50-t3 \
+    --root /mnt/datasets \
+    --push-to-hub false \
+    --force-conversion
+
+# 7) Verify local metadata is v3.0
+jq '.codebase_version, .data_path, .video_path' \
+    /mnt/datasets/cmotions/custom-cube-frontwristcam-50-t3/meta/info.json
+
+# 8) Upload the already-converted v3.0 folder to Hugging Face Hub
+python - <<'PY'
+from huggingface_hub import HfApi, create_repo
+
+repo_id = "cmotions/custom-cube-frontwristcam-50-t3"
+local_dir = "/mnt/datasets/cmotions/custom-cube-frontwristcam-50-t3"
+
+create_repo(repo_id=repo_id, repo_type="dataset", exist_ok=True)
+api = HfApi()
+api.upload_folder(
+    repo_id=repo_id,
+    repo_type="dataset",
+    folder_path=local_dir,
+    path_in_repo=".",
+)
+print("upload complete:", repo_id)
+PY
+```
+
+If `upload_folder` returns `401 Unauthorized`, refresh your token first with `hf auth login` and ensure the token has write access to the `cmotions` namespace.
+
 Here are examples of the camera data generated:
 | Front Camera | Wrist Camera |
 |---|---|
