@@ -1,0 +1,274 @@
+# SO101 Scene Configuration File
+
+simulation:
+  headless: false
+  stage_units_in_meters: 1.0
+
+# Scene Object Configuration
+scene:
+  # Candy Configuration - Three Different Types
+  oranges:
+    count: 3
+    models: 
+      - "Orange001"  # Will represent Werther's Original (golden)
+      - "Orange002"  # Will represent Napoleon candy (dark brown/black)
+      - "Orange003"  # Will represent Haags Hopje (coffee/caramel colored)
+    usd_paths:
+      - "assets/objects/Orange001/Orange001.usd"
+      - "assets/objects/Orange002/Orange002.usd"
+      - "assets/objects/Orange003/Orange003.usd"
+    
+    # Candy type specifications
+    candy_types:
+      Orange001:
+        name: "Werthers Original"
+        color: [0.9, 0.7, 0.2]      # Golden yellow
+        mass: 0.006                  # 6g - hard candy
+        roughness: 0.1               # Glossy finish
+        metallic: 0.3                # Slight metallic shine
+      Orange002:
+        name: "Napoleon Candy"  
+        color: [0.2, 0.1, 0.05]      # Dark brown/black
+        mass: 0.008                  # 8g - slightly heavier
+        roughness: 0.2               # Semi-glossy
+        metallic: 0.1                # Less metallic
+      Orange003:
+        name: "Haags Hopje"
+        color: [0.6, 0.4, 0.2]       # Coffee/caramel brown
+        mass: 0.007                  # 7g - medium weight
+        roughness: 0.15              # Medium gloss
+        metallic: 0.2                # Medium metallic
+    
+    # Candy Generation Configuration - Dual-Zone Avoidance
+    generation:
+      # Base generation range (expanded to increase success rate)
+      x_range: [0.1, 0.35]       # X: 10cm to 35cm
+      y_range: [-0.25, 0.25]     # Y: -25cm to 25cm
+      z_drop_height: 0.05        # Z: 5cm height
+      max_attempts: 50           # Maximum attempts per candy
+      
+      # Exclusion Zones Configuration (Dual-Zone Avoidance)
+      exclusion_zones:
+        # Robot arm exclusion zone (space occupied when the arm is straight forward)
+        - name: "robot_arm_zone"
+          type: "rectangle"
+          bounds:
+            x: [-0.1, 0.1]       # Robot arm X exclusion range
+            y: [-0.05, 0.05]     # Robot arm Y exclusion range (user confirmed)
+            z: [0.0, 0.05]       # Robot arm Z exclusion range
+        
+        # Plate exclusion zone (circular safety area)
+        - name: "plate_zone"
+          type: "circle"
+          center_from: "plate_position"  # Automatically get from plate position
+          radius: 0.12           # Plate exclusion radius 12cm (plate radius 10cm + 2cm safety margin)
+          z: [0.0, 0.2]          # Z-axis exclusion height
+    
+    # Default candy physics (individual overrides in candy_types above)
+    physics:
+      radius: 0.015             # Smaller radius 1.5cm (candy-like size)
+      height: 0.02              # Smaller height 2cm (candy-like size)
+      mass: 0.007               # Default mass 7g (overridden per candy type)
+      min_distance: 0.04        # Minimum distance between objects 4cm
+
+  # Yellow Bowl Configuration (styled from existing plate)
+  plate:
+    model: "Plate"
+    usd_path: "assets/objects/Plate/Plate.usd"
+    position: [0.165, -0.15, 0.02]  # Corresponds to the default value of args_cli.plate_pos
+    scale: 1.0
+    use_virtual: true  # Corresponds to the virtual plate object logic in the main script
+    # Yellow bowl styling
+    bowl_styling:
+      color: [1.0, 1.0, 0.0]        # Bright yellow
+      roughness: 0.2                 # Smooth finish
+      metallic: 0.0                  # Non-metallic
+    virtual_config:
+      radius: 0.1               # Plate radius 10cm (user confirmed)
+      height: 0.02
+      position: [0.165, -0.15, 0.005]  # Plate is closer to the ground
+
+# Smart Placement System Configuration (hardcoded values removed from smart_placement.py)
+placement:
+  # Workspace Bounds
+  workspace_bounds:
+    x: [0.05, 0.3]             # X-axis working range: 5cm to 30cm
+    y: [0.0, 0.2]              # Y-axis working range: 0cm to 20cm
+    z: [0.05, 0.05]            # Z-axis working range: 5cm
+  
+  # Robot Arm Exclusion Zone (area occupied by initial pose)
+  robot_exclusion_zone:
+    x: [-0.1, 0.1]              # X-axis exclusion range: -10cm to 10cm  
+    y: [-0.05, 0.05]            # Y-axis exclusion range: -5cm to 5cm (user confirmed)
+    z: [0.0, 0.05]              # Z-axis exclusion range: ground to 5cm
+  
+  # Safety Distance Configuration
+  safety_distances:
+    min_distance_between_objects: 0.03   # Minimum distance between objects 3cm
+    min_distance_from_edge: 0.02         # Minimum distance from edge 2cm
+    min_distance_from_robot: 0.06        # Minimum distance from robot 6cm
+    min_distance_from_plate: 0.12        # Minimum distance from plate 12cm (plate radius 10cm + 2cm safety margin)
+  
+  # Placement Limits (to avoid IK failures)
+  placement_limits:
+    max_x_distance: 0.30                # Max X-direction distance 30cm
+    max_y_distance: 0.20                # Max Y-direction distance 20cm
+  
+  # Object Size Configuration (for collision detection)
+  object_sizes:
+    orange:
+      radius: 0.015             # Smaller radius for candy-like appearance
+      height: 0.02              # Smaller height for candy-like appearance
+    plate:
+      radius: 0.10              # Plate radius 10cm (user confirmed)
+      height: 0.02              # Plate height 2cm
+    default:
+      radius: 0.05              # Default object radius 5cm
+      height: 0.10              # Default object height 10cm
+  
+  # Robot Base Position (for avoidance calculation)
+  robot_base_position: [0.0, 0.0, 0.0]
+
+  # Environment Settings
+  environment:
+    stage_units_in_meters: 1.0
+    ground_plane: true
+    # White table styling (applied to ground plane)
+    table_styling:
+      color: [1.0, 1.0, 1.0]         # Pure white
+      roughness: 0.3                  # Matte finish
+      metallic: 0.0                   # Non-metallic
+    lighting:
+      dome_light:
+        path: "/World/defaultLight"
+        intensity: 3000.0
+        color: [0.75, 0.75, 0.75]
+
+# Robot Configuration
+robot:
+  # Robot name
+  robot_name: "so101_robot"
+  model: "so101"
+  urdf_path: "assets/robots/so101_physics_generated/so101_new_calib.urdf"
+  descriptor_path: "config/so101_descriptor.yaml"
+  target_position: [0.25, 0.0, 0.2]  # Corresponds to the default value of args_cli.target_pos
+
+# Task Configuration
+task:
+  name: "so101_follow_target"
+  type: "pick_and_place"
+  search_mode: false  # Inverse of --no-search-mode
+  shoulder_pan_limit: 110.0  # Corresponds to args_cli.shoulder_pan_limit
+
+# Camera Configuration
+cameras:
+  
+  front_camera:
+    position: [0.52, 0.0, 0.4]
+    orientation: [0.65328, 0.2706, 0.2706, 0.65328]  # (w, x, y, z)
+    focal_length: 28.7
+    horizontal_aperture: 38.11
+    vertical_aperture: 28.58
+    clipping_range: [0.01, 50.0]
+  
+  wrist_camera:
+    position:  [0.02, 0.2, 0.1]  # [0.02, 0.075, -0.025]
+    orientation: [0.93969, -0.34202, 0.0, 0.0]  # [0.96593, -0.25882, 0.0, 0.0]  # (w, x, y, z)
+    focal_length: 36.5
+    horizontal_aperture: 36.83
+    vertical_aperture: 27.62
+    clipping_range: [0.01, 50.0]
+
+# Data Collection Configuration
+data_collection:
+  enabled: true
+  output_path: "./datasets/so101_pickup_data.hdf5"
+
+# Target Configuration - Candy-Specific Visualization
+target_configs:
+  "/World/orange1":
+    name: "orange1_object"  # Werther's Original
+    candy_type: "Werthers Original"
+    draw_aabb: true
+    aabb_color: [1.0, 0.8, 0.2, 0.5]  # Golden, translucent
+    draw_obb: true
+    obb_color: [0.9, 0.7, 0.2, 1.0]   # Golden, opaque
+  "/World/orange2":
+    name: "orange2_object"  # Napoleon Candy
+    candy_type: "Napoleon Candy"
+    draw_aabb: true
+    aabb_color: [0.3, 0.2, 0.1, 0.5]  # Dark brown, translucent
+    draw_obb: true
+    obb_color: [0.2, 0.1, 0.05, 1.0]  # Dark brown, opaque
+  "/World/orange3":
+    name: "orange3_object"  # Haags Hopje
+    candy_type: "Haags Hopje"
+    draw_aabb: true
+    aabb_color: [0.7, 0.5, 0.3, 0.5]  # Coffee brown, translucent
+    draw_obb: true
+    obb_color: [0.6, 0.4, 0.2, 1.0]   # Coffee brown, opaque
+
+# Debug Configuration
+debug:
+  show_viz: false  # Corresponds to args_cli.show_debug_viz
+  log_level: "INFO"
+  safe_print: true  # Corresponds to the safe print function in the main script
+
+# Grasp Detection Configuration
+grasp_detection:
+  check_interval_frames: 10
+  failure_confirmation_frames: 10
+  grip_distance_threshold: 0.03
+  contact_force_threshold: 0.1
+  enable_smart_grasp_detection: true
+  grasp_success_xy_threshold: 0.05
+  grasp_success_z_threshold: 0.08
+  grasp_movement_ratio_threshold: 0.7
+  grasp_stability_frames: 10
+  placement_velocity_threshold: 0.08  # 8cm/s (more lenient)
+  placement_stability_frames: 120     # 4 seconds (longer duration)
+  plate_placement_margin: 0.025
+  moving_jaw_path: "/World/so101_robot/moving_jaw_so101_v1_link"
+  fixed_jaw_path: "/World/so101_robot/gripper_link"
+  gripper_tip_offset: 0.08
+  gripper_tip_direction: "down"
+  enable_debug_logging: false
+  xy_distance_multiplier: 0.8
+  z_distance_multiplier: 1.5
+  enable_adaptive_z_threshold: true
+  xy_good_threshold_multiplier: 0.5
+  z_relaxed_multiplier: 2.0
+  enable_grasp_monitoring: true
+  monitoring_interval_frames: 5
+
+# New: Plate Movement Monitoring Configuration
+plate_monitoring:
+  enabled: true                  # Whether to enable monitoring
+  position_threshold: 0.03       # Position change threshold (meters, e.g., 3cm)
+  velocity_threshold: 0.1        # Velocity threshold (m/s, e.g., 10cm/s)
+
+# Robot IK Controller Configuration
+ik_controller:
+  solver: "LMA"
+
+# State Machine Control Parameters
+state_machine_control:
+  # Grasping Phase
+  grasping:
+    # Gripper close angle range (percentage, 0.0=fully closed, 1.0=fully open)
+    close_angle_percent_min: 0.18
+    close_angle_percent_max: 0.235
+    # Gripper close duration (seconds)
+    close_duration_s: 0.75
+    # Duration to wait after grasping for the object to settle, in seconds
+    settle_duration_s: 0.35
+  # Movement Speeds
+  movement_speeds:
+    # High-altitude fast movement speed (m/physics step), for APPROACH, TRANSPORT, RETURN_HOME
+    travel_horizontal_step_m: 0.003
+
+    # Fine Operation Speeds
+    # Descend speed (m/physics step), slow speed is recommended for precision
+    descend_step_m: 0.001
+    # Lift speed (m/physics step), can be slightly faster
+    lift_step_m: 0.002

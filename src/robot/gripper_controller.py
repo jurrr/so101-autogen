@@ -5,7 +5,7 @@ Manages the state and movement of the robot's gripper.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class GripperController:
     It manages the target position and applies incremental changes.
     """
     
-    def __init__(self, open_pos: float, closed_pos: float):
+    def __init__(self, open_pos: float, closed_pos: float, controller_config: Optional[Dict] = None):
         """
         Initializes the GripperController.
         
@@ -25,9 +25,10 @@ class GripperController:
         """
         self.open_pos = open_pos
         self.closed_pos = closed_pos
+        self._config = controller_config or {}
         
         # Control parameters
-        self.gripper_step = 0.01
+        self.gripper_step = self._config.get('step_size', 0.01)
         self.current_gripper_position = open_pos
         self.target_gripper_position = open_pos
         self.gripper_delta = 0.0

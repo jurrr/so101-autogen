@@ -13,7 +13,7 @@ class RayVisualizer:
     """
     Ray Visualizer - Responsible for calculating the position and direction of three rays, and for drawing them.
     """
-    def __init__(self, draw_interface):
+    def __init__(self, draw_interface, config=None):
         """
         Initializes the Ray Visualizer.
 
@@ -21,8 +21,24 @@ class RayVisualizer:
             draw_interface: An instance of Isaac Sim's _debug_draw interface.
         """
         self.draw = draw_interface
-        self.ray_length = 0.5  # Length of the rays
+        self._config = config or {}
+        self.ray_length = self._config.get('ray_length_m', 0.5)
+        self._red_ray = self._build_ray_settings(
+            'red', default_direction=[0.0, -1.0, 0.0], default_offset=[0.0, -0.08, 0.0]
+        )
+        self._green_ray = self._build_ray_settings(
+            'green', default_direction=[-1.0, 0.0, 0.0], default_offset=[0.0, 0.0, -0.02]
+        )
+        self._purple_ray = self._build_ray_settings(
+            'purple', default_direction=[0.0, 0.0, 1.0], default_offset=[0.0, 0.0, 0.0]
+        )
         logger.info("🌈 Ray visualizer initialized.")
+
+    def _build_ray_settings(self, key, default_direction, default_offset):
+        ray_cfg = self._config.get(key, {})
+        direction = np.array(ray_cfg.get('direction_local', default_direction))
+        offset = np.array(ray_cfg.get('origin_offset_local', default_offset))
+        return {"direction": direction, "offset": offset}
 
     def calculate_rays(self, ee_pos, ee_rot, gripper_pos, gripper_rot):
         """
@@ -39,29 +55,21 @@ class RayVisualizer:
         """
         try:
             # Red ray: Down from wrist_link (local negative Y-axis)
-            direction_local_red = np.array([0, -1, 0])
-            ray_direction_red = ee_rot @ direction_local_red
-            
-            # Red ray origin: wrist_link position + offset
-            offset_local_red = np.array([0, -0.08, 0])
-            offset_world_red = ee_rot @ offset_local_red
+            ray_direction_red = ee_rot @ self._red_ray["direction"]
+            offset_world_red = ee_rot @ self._red_ray["offset"]
             ray_origin_red = ee_pos + offset_world_red
             ray_end_point_red = ray_origin_red + ray_direction_red * self.ray_length
 
             # Green ray: Left from gripper (local negative X-axis)
-            direction_local_green = np.array([-1, 0, 0])
-            ray_direction_green = gripper_rot @ direction_local_green
-            
-            # Green ray origin: gripper position + offset
-            offset_local_green = np.array([0, 0, -0.04])
-            offset_world_green = gripper_rot @ offset_local_green
+            ray_direction_green = gripper_rot @ self._green_ray["direction"]
+            offset_world_green = gripper_rot @ self._green_ray["offset"]
             ray_origin_green = gripper_pos + offset_world_green
             ray_end_point_green = ray_origin_green + ray_direction_green * self.ray_length
 
             # Purple ray: Up from gripper (local positive Z-axis)
-            direction_local_purple = np.array([0, 0, 1])
-            ray_direction_purple = gripper_rot @ direction_local_purple
-            ray_origin_purple = gripper_pos
+            offset_world_purple = gripper_rot @ self._purple_ray["offset"]
+            ray_origin_purple = gripper_pos + offset_world_purple
+            ray_direction_purple = gripper_rot @ self._purple_ray["direction"]
             ray_end_point_purple = ray_origin_purple + ray_direction_purple * self.ray_length
 
             rays_info = {
@@ -95,7 +103,7 @@ class RayVisualizer:
             return {}
 
     def get_rays_for_drawing(self, rays_info, is_enabled=True):
-        """
+        """     
         Gets the data for drawing the rays.
         
         Args:

@@ -28,7 +28,7 @@ class WorldSetup:
     Responsible for creating the Isaac Sim world, adding tasks, and setting up the environment.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], object_gripper_config: Dict[str, Any] = None):
         """
         Initializes the WorldSetup manager.
         
@@ -38,6 +38,7 @@ class WorldSetup:
         self.config = config
         self.world = None
         self.task = None
+        self.object_gripper_config = object_gripper_config or {}
         
         # Get parameters from config
         sim_config = config.get('simulation', {})
@@ -123,7 +124,11 @@ class WorldSetup:
         Adds the FollowTarget task to the world.
         """
         try:
-            self.task = FollowTarget(name=self.task_name, target_position=self.target_position)
+            self.task = FollowTarget(
+                name=self.task_name,
+                target_position=self.target_position,
+                object_gripper_config=self.object_gripper_config
+            )
             
             self.world.add_task(self.task)
             

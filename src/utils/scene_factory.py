@@ -84,9 +84,9 @@ class SceneFactory:
         smart_placement.placed_objects.append(plate_object_info)
         print(f"Plate avoidance zone: Position {plate_center}, Radius {smart_placement.object_sizes['plate']['radius']}m")
         
-        # Generate orange positions
-        orange_types = ["orange"] * orange_count
-        orange_names = [f"orange{i+1}_object" for i in range(orange_count)]
+        # Generate orange positions - only one orange now
+        orange_types = ["orange"]
+        orange_names = ["orange1_object"]
         orange_positions = smart_placement.generate_safe_positions(orange_types, orange_names)
         
         # Combine all positions
@@ -125,7 +125,7 @@ class SceneFactory:
         """Loads the orange objects with candy-specific masses.
         
         Args:
-            orange_count (int): The number of oranges.
+            orange_count (int): The number of oranges (should be 1).
             orange_usd_paths (list): A list of paths to the orange USD files.
             safe_positions (list): A list of safe positions.
             orange_mass (float): The default mass of the oranges.
@@ -139,24 +139,25 @@ class SceneFactory:
         # Get candy type configurations
         oranges_config = scene_config.get('scene', {}).get('oranges', {})
         candy_types = oranges_config.get('candy_types', {})
-        orange_models = oranges_config.get('models', ["Orange001", "Orange002", "Orange003"])
+        orange_models = oranges_config.get('models', ["Orange001"])
         
-        for i in range(orange_count):
-            if i < len(safe_positions) - 1:  # Subtract 1 because the last position is the plate
-                usd_path = f"{self.project_root}/{orange_usd_paths[i]}" if i < len(orange_usd_paths) else f"{self.project_root}/{orange_usd_paths[0]}"
-                prim_path = f"/World/orange{i+1}"
-                scene_name = f"orange{i+1}_object"
-                
-                # Get candy-specific mass
-                model_name = orange_models[i] if i < len(orange_models) else f"Orange00{i+1}"
-                candy_info = candy_types.get(model_name, {})
-                candy_mass = candy_info.get('mass', orange_mass)
-                candy_name = candy_info.get('name', f'Candy {i+1}')
-                
-                orange_obj = self._load_single_orange(usd_path, prim_path, safe_positions[i].tolist(), scene_name, candy_mass)
-                if orange_obj:
-                    orange_objects_loaded[scene_name] = orange_obj
-                    print(f"{candy_name} loaded successfully: Position {safe_positions[i].tolist()}, Mass {candy_mass}kg")
+        # Load only the first orange (Orange001)
+        if len(safe_positions) > 1:  # Subtract 1 because the last position is the plate
+            i = 0
+            usd_path = f"{self.project_root}/{orange_usd_paths[0]}"
+            prim_path = "/World/orange1"
+            scene_name = "orange1_object"
+            
+            # Get candy-specific mass
+            model_name = orange_models[0]
+            candy_info = candy_types.get(model_name, {})
+            candy_mass = candy_info.get('mass', orange_mass)
+            candy_name = candy_info.get('name', 'Candy 1')
+            
+            orange_obj = self._load_single_orange(usd_path, prim_path, safe_positions[0].tolist(), scene_name, candy_mass)
+            if orange_obj:
+                orange_objects_loaded[scene_name] = orange_obj
+                print(f"{candy_name} loaded successfully: Position {safe_positions[0].tolist()}, Mass {candy_mass}kg")
         
         return orange_objects_loaded
     
@@ -326,8 +327,8 @@ class SceneFactory:
             print(f"   Debug: Bowl styling: {bowl_styling}")
             print(f"   Debug: Table styling: {table_styling}")
             
-            # Apply candy materials to orange objects
-            orange_models = oranges_config.get('models', ["Orange001", "Orange002", "Orange003"])
+            # Apply candy materials to orange objects - only one orange now
+            orange_models = oranges_config.get('models', ["Orange001"])
             print(f"   Debug: Orange models: {orange_models}")
             
             materials_applied = 0
@@ -338,23 +339,21 @@ class SceneFactory:
                 
                 if "orange" in object_name.lower() and hasattr(obj, 'prim_path'):
                     materials_attempted += 1
-                    # Determine candy type based on object index
-                    object_index = int(object_name.replace('orange', '').replace('_object', '')) - 1
-                    if object_index < len(orange_models):
-                        model_name = orange_models[object_index]
-                        candy_info = candy_types.get(model_name, {})
-                        candy_name = candy_info.get('name', f'Candy {object_index+1}')
-                        
-                        print(f"   🍬 Transforming {object_name} → {candy_name}")
-                        print(f"       Prim path: {obj.prim_path}")
-                        print(f"       Candy info: {candy_info}")
-                        
-                        if candy_info:  # Only apply if we have candy info
-                            success = self._apply_material_to_object(obj.prim_path, candy_info, candy_name)
-                            if success:
-                                materials_applied += 1
-                        else:
-                            print(f"       ❌ No candy info found for {model_name}")
+                    # Only one orange (orange1), always use the first model
+                    model_name = orange_models[0]
+                    candy_info = candy_types.get(model_name, {})
+                    candy_name = candy_info.get('name', 'Candy 1')
+                    
+                    print(f"   🍬 Transforming {object_name} → {candy_name}")
+                    print(f"       Prim path: {obj.prim_path}")
+                    print(f"       Candy info: {candy_info}")
+                    
+                    if candy_info:  # Only apply if we have candy info
+                        success = self._apply_material_to_object(obj.prim_path, candy_info, candy_name)
+                        if success:
+                            materials_applied += 1
+                    else:
+                        print(f"       ❌ No candy info found for {model_name}")
                 
                 elif "plate" in object_name.lower():
                     if hasattr(obj, 'prim_path') and bowl_styling:

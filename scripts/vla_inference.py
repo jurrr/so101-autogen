@@ -315,6 +315,10 @@ def main():
         # Initialize the real environment
         world, robot, camera_controller, config = initialize_environment_for_vla(PROJECT_ROOT, headless=args.headless)
         
+        from src.utils.config_utils import load_scene_config, load_object_gripper_config
+        scene_config = load_scene_config(PROJECT_ROOT) or {}
+        object_gripper_config = scene_config.get('object_gripper', {}) or load_object_gripper_config(PROJECT_ROOT) or {}
+
         # After environment initialization, read debug visualization settings from config and hide elements
         print("🔧 Reading debug visualization configuration...")
         try:
@@ -344,7 +348,7 @@ def main():
                 DebugVisualizer = get_debug_visualizer()
                 
                 bbox_visualizer = BoundingBoxVisualizer(draw_interface)
-                ray_visualizer = RayVisualizer(draw_interface)
+                ray_visualizer = RayVisualizer(draw_interface, config=object_gripper_config.get('raycasting', {}))
                 pickup_assessor = PickupAssessor(world, bbox_visualizer)
                 debug_visualizer = DebugVisualizer(draw_interface, bbox_visualizer, pickup_assessor, ray_visualizer)
                 
@@ -390,9 +394,6 @@ def main():
         # Initialize Scene Manager to handle reset logic
         print("🎬 Initializing Scene Manager...")
         from src.scene.scene_manager import SceneManager
-        from src.utils.config_utils import load_scene_config
-        
-        scene_config = load_scene_config(PROJECT_ROOT)
         scene_manager = SceneManager(scene_config, world)
         
         # Register scene objects for reset

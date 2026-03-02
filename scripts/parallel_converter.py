@@ -12,6 +12,14 @@ import pandas as pd
 # from lerobot.datasets.lerobot_dataset import LeRobotDataset # MOVED
 import pprint
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src.utils.path_utils import ensure_datasets_dir_exists
+
+DEFAULT_HDF5_ROOT = ensure_datasets_dir_exists()
+
 # Feature definition for the single-arm so101_follower configuration
 SINGLE_ARM_FEATURES = {
     "action": {
@@ -196,6 +204,60 @@ format. It manages worker processes that handle the actual data conversion,
 ensuring the main process remains clean and avoids multiprocessing-related issues.
 """
 
+
+def extract_camera_name_from_video_path(video_path, worker_root):
+    """Extract camera key from a worker video path.
+
+    Supports both legacy and newer layouts, for example:
+    - videos/chunk-000/observation.images.front/episode_000000.mp4
+    - videos/observation.images.front/chunk-000/file_000.mp4
+
+    Falls back to the immediate parent directory name if the path cannot be parsed.
+    """
+    rel_path = os.path.relpath(video_path, worker_root)
+    parts = rel_path.split(os.sep)
+
+    if len(parts) >= 4 and parts[0] == "videos":
+        # Legacy v2.1: videos/chunk-000/<camera>/episode_*.mp4
+        if parts[1].startswith("chunk-") and not parts[2].startswith("chunk-"):
+            return parts[2]
+
+        # Newer layout: videos/<camera>/chunk-000/file_*.mp4
+        if not parts[1].startswith("chunk-") and parts[2].startswith("chunk-"):
+            return parts[1]
+
+    # Fallback (best effort)
+    return os.path.basename(os.path.dirname(video_path))
+
+
+def select_data_parquet_from_worker_file(file_path, worker_root):
+    """Return True when file_path is an episode parquet under worker data directory."""
+    rel_path = os.path.relpath(file_path, worker_root)
+    parts = rel_path.split(os.sep)
+
+    if len(parts) < 3:
+        return False
+
+    # Expected worker path patterns:
+    # - data/chunk-000/episode_000000.parquet (legacy v2.1 episode shards)
+    # - data/chunk-000/file_000.parquet      (newer file-based shards)
+    # - data/chunk-000/file-000.parquet      (some lerobot versions)
+    if parts[0] != "data":
+        return False
+    if not parts[1].startswith("chunk-"):
+        return False
+    if not parts[2].endswith(".parquet"):
+        return False
+    if not (
+        parts[2].startswith("episode_")
+        or parts[2].startswith("episode-")
+        or parts[2].startswith("file_")
+        or parts[2].startswith("file-")
+    ):
+        return False
+
+    return True
+
 def scan_for_tasks(hdf5_files, worker_script_path, python_executable):
     """Uses the worker script in --scan mode to discover all demos."""
     tasks = []
@@ -279,7 +341,7 @@ def main():
     parser.add_argument('--repo-id',type=str,default='matrix/so101_sync_orange_pick',help='The HuggingFace repository ID for the dataset.')
     parser.add_argument('--robot-type',type=str,choices=['so101_follower', 'bi_so101_follower'],default='so101_follower',help='The type of robot configuration.')
     parser.add_argument('--fps',type=int,default=30,help='The frames per second for the dataset videos.')
-    parser.add_argument('--hdf5-root',type=str,default='./datasets',help='The root directory containing the source HDF5 files.')
+    parser.add_argument('--hdf5-root',type=str,default=DEFAULT_HDF5_ROOT,help='The root directory containing the source HDF5 files.')
     parser.add_argument('--hdf5-files',type=str,nargs='+',default=['dataset.hdf5'],help='A list of HDF5 files to process (relative to hdf5-root).')
     parser.add_argument('--task',type=str,default='Grab orange and place into plate',help='A description of the task being performed in the dataset.')
     parser.add_argument('--push-to-hub',action='store_true',help='Push the converted dataset to the HuggingFace Hub upon completion.')
@@ -304,6 +366,8 @@ def main():
     )
 
     args = parser.parse_args()
+    args.hdf5_root = os.path.abspath(os.path.expanduser(args.hdf5_root))
+    os.makedirs(args.hdf5_root, exist_ok=True)
     
     # --- Script paths and file lists ---
     # Construct an absolute path to the worker script, assuming execution from the project root
@@ -498,11 +562,13 @@ def main():
 
             for dirpath, _, filenames in os.walk(worker_root):
                 for filename in filenames:
-                    if filename.endswith('.parquet'):
-                        found_parquet = os.path.join(dirpath, filename)
+                    file_path = os.path.join(dirpath, filename)
+                    if filename.endswith('.parquet') and select_data_parquet_from_worker_file(file_path, worker_root):
+                        found_parquet = file_path
                     elif filename.endswith('.mp4'):
-                        camera_name = os.path.basename(dirpath)
-                        found_videos.append({"path": os.path.join(dirpath, filename), "camera": camera_name})
+                        video_path = file_path
+                        camera_name = extract_camera_name_from_video_path(video_path, worker_root)
+                        found_videos.append({"path": video_path, "camera": camera_name})
             
             # 3. Move and correct the data file (.parquet)
             if found_parquet:

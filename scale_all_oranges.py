@@ -1,10 +1,8 @@
 from pxr import Usd, UsdGeom
 
-# Scale all three orange USD files
+# Scale only Orange001 USD file
 orange_files = [
-    "assets/objects/Orange001/Orange001.usd",
-    "assets/objects/Orange002/Orange002.usd", 
-    "assets/objects/Orange003/Orange003.usd"
+    "assets/objects/Orange001/Orange001.usd"
 ]
 
 def scale_orange_file(usd_path, scale_factor=(1,1,1)):
