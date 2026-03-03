@@ -204,63 +204,85 @@ python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
 
 Make sure you are logged in with `huggingface-cli login` beforehand so both the conversion and the v3.0 upgrade can push to the Hub successfully.
 
-### Recreate and publish the 50-episode dataset as v3.0 (`cmotions/custom-cube-frontwristcam-50-t3`)
+### Generic publish flow for any v3.0 dataset
 
-If the old 50-episode file is no longer available, rerun simulation data collection and then republish with the updated naming (`-50-t3`) and v3.0 format.
+Use this flow for any dataset name and any episode count.
 
 ```bash
 # 0) Recreate /mnt dataset directories after VM restart (one-time per reboot if needed)
 sudo mkdir -p /mnt/datasets
 sudo chown -R "$USER":"$USER" /mnt/datasets
-mkdir -p /mnt/datasets/hf_home/lerobot /mnt/datasets/cmotions
+mkdir -p /mnt/datasets/hf_home/lerobot
 
 # 1) Activate your Isaac environment
 conda activate isaac
 
-# 2) Recollect 50 successful episodes (requires Isaac Sim running)
+# 2) Collect data (replace values)
 python scripts/data_collection_automatic.py \
-    --total-success-episodes 50 \
-    --data-output /mnt/datasets/custom_cube_frontwristcam_50.hdf5
+    --total-success-episodes <episode_count> \
+    --data-output /mnt/datasets/<dataset_name>.hdf5
 
 # 3) Quick validity check of recorded demos
 python scripts/convert_worker.py \
-    --hdf5-file /mnt/datasets/custom_cube_frontwristcam_50.hdf5 \
+    --hdf5-file /mnt/datasets/<dataset_name>.hdf5 \
     --scan
 
 # 4) Build local LeRobot v2.1 dataset (no push yet)
 export HF_LEROBOT_HOME=/mnt/datasets/hf_home/lerobot
 python scripts/parallel_converter.py \
-    --repo-id cmotions/custom-cube-frontwristcam-50-t3 \
-    --robot-type so101_follower \
+    --repo-id <user>/<repo_name> \
+    --robot-type so_follower \
     --fps 30 \
     --hdf5-root /mnt/datasets \
-    --hdf5-files custom_cube_frontwristcam_50.hdf5 \
+    --hdf5-files <dataset_name>.hdf5 \
     --task "grab object and place into plate" \
     --num-workers 2
 
-# 5) Copy dataset into /mnt/datasets/<user>/<repo> for v2.1 -> v3.0 conversion
-mkdir -p /mnt/datasets/cmotions
+# 5) Copy into /mnt/datasets/<user>/<repo_name> for local conversion
+mkdir -p /mnt/datasets/<user>
 rsync -a --delete \
-    /mnt/datasets/hf_home/lerobot/cmotions/custom-cube-frontwristcam-50-t3 \
-    /mnt/datasets/cmotions/
+    /mnt/datasets/hf_home/lerobot/<user>/<repo_name> \
+    /mnt/datasets/<user>/
 
 # 6) Convert local copy to v3.0
 python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 \
-    --repo-id cmotions/custom-cube-frontwristcam-50-t3 \
+    --repo-id <user>/<repo_name> \
     --root /mnt/datasets \
     --push-to-hub false \
     --force-conversion
 
 # 7) Verify local metadata is v3.0
 jq '.codebase_version, .data_path, .video_path' \
-    /mnt/datasets/cmotions/custom-cube-frontwristcam-50-t3/meta/info.json
+    /mnt/datasets/<user>/<repo_name>/meta/info.json
 
-# 8) Upload the already-converted v3.0 folder to Hugging Face Hub
+# 8) Normalize to the canonical naming used by wvangils/pick_place_hopje_candy_pink_cup
+# This keeps reruns merge-compatible by default (front -> top, robot_type -> so_follower)
+python scripts/normalize_dataset_schema.py \
+    --repo-ids <user>/<repo_name> \
+    --root /mnt/datasets \
+    --rename-map '{"observation.images.front":"observation.images.top"}' \
+    --robot-type so_follower
+
+# 8.1) Verify canonical naming before upload
+python - <<'PY'
+import json
+from pathlib import Path
+
+repo_id = "<user>/<repo_name>"
+info = json.loads(Path(f"/mnt/datasets/{repo_id}/meta/info.json").read_text())
+print("codebase_version:", info.get("codebase_version"))
+print("robot_type:", info.get("robot_type"))
+print("video keys:", sorted([k for k in info.get("features", {}) if k.startswith("observation.images.")]))
+PY
+
+# 9) Upload v3.0 folder and create/update required Hub tag
 python - <<'PY'
 from huggingface_hub import HfApi, create_repo
+from huggingface_hub.utils import HfHubHTTPError
+import json
 
-repo_id = "cmotions/custom-cube-frontwristcam-50-t3"
-local_dir = "/mnt/datasets/cmotions/custom-cube-frontwristcam-50-t3"
+repo_id = "<user>/<repo_name>"
+local_dir = f"/mnt/datasets/{repo_id}"
 
 create_repo(repo_id=repo_id, repo_type="dataset", exist_ok=True)
 api = HfApi()
@@ -270,11 +292,53 @@ api.upload_folder(
     folder_path=local_dir,
     path_in_repo=".",
 )
-print("upload complete:", repo_id)
+
+with open(f"{local_dir}/meta/info.json", "r") as f:
+    codebase_version = json.load(f)["codebase_version"]
+
+try:
+    api.delete_tag(repo_id=repo_id, tag=codebase_version, repo_type="dataset")
+except HfHubHTTPError:
+    pass
+api.create_tag(repo_id=repo_id, tag=codebase_version, revision="main", repo_type="dataset")
+
+print("upload complete:", repo_id, "tag:", codebase_version)
 PY
 ```
 
-If `upload_folder` returns `401 Unauthorized`, refresh your token first with `hf auth login` and ensure the token has write access to the `cmotions` namespace.
+If you want to normalize and publish in one command for multiple repos, use:
+
+```bash
+python scripts/normalize_dataset_schema.py \
+    --repo-ids <user>/<repo_a> <user>/<repo_b> \
+    --root /mnt/datasets \
+    --download-missing \
+    --rename-map '{"observation.images.front":"observation.images.top"}' \
+    --robot-type so_follower \
+    --upload
+```
+
+Use `--download-missing` when `/mnt/datasets/<user>/<repo_name>` does not exist after a VM restart.
+
+For strict compatibility with `wvangils/pick_place_hopje_candy_pink_cup`, keep these canonical values:
+- `robot_type`: `so_follower`
+- camera keys: `observation.images.top` and `observation.images.wrist`
+
+If `upload_folder` returns `401 Unauthorized`, refresh your token first with `hf auth login` and ensure the token has write access to the target namespace.
+
+If merge/training reports `RevisionNotFoundError` for codebase version tags, verify refs explicitly:
+
+```bash
+python - <<'PY'
+from huggingface_hub import HfApi
+
+repo_id = "<user>/<repo_name>"
+refs = HfApi().list_repo_refs(repo_id=repo_id, repo_type="dataset")
+print("tags:", [t.name for t in refs.tags])
+PY
+```
+
+Expected output includes your `meta/info.json` `codebase_version` (for example `v3.0`).
 
 Here are examples of the camera data generated:
 | Front Camera | Wrist Camera |
